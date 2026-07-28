@@ -17,7 +17,7 @@ namespace KaldiPOS.Views
             _totalAmount = totalAmount;
             Title = "Ödeme Al";
             Width = 440;
-            Height = 420;
+            Height = 490;
             ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             WindowStyle = WindowStyle.None;
@@ -50,13 +50,10 @@ namespace KaldiPOS.Views
 
             root.Children.Add(CreateButton("Nakit", "#2F8F57"));
             root.Children.Add(CreateButton("Kart", "#3E72B8"));
-            var splitPaymentButton =
-                CreateButton("Parçalı Ödeme", "#A97831");
-
-            splitPaymentButton.IsEnabled = false;
-            splitPaymentButton.Opacity = 0.45;
-
-            root.Children.Add(splitPaymentButton);
+            root.Children.Add(
+                CreateButton("Parçalı Ödeme", "#A97831"));
+            root.Children.Add(
+                CreateButton("Ürün Seçerek Ödeme", "#73543A"));
 
             var closeButton = new Button
             {
@@ -124,6 +121,44 @@ namespace KaldiPOS.Views
                     SelectedPaymentType = "Nakit";
                     ReceivedAmount = cashWindow.ReceivedAmount;
                     ChangeAmount = cashWindow.ChangeAmount;
+                    DialogResult = true;
+                    return;
+                }
+
+                if (paymentType == "Kart")
+                {
+                    var cardWindow = new CardPaymentWindow(_totalAmount)
+                    {
+                        Owner = this
+                    };
+
+                    if (cardWindow.ShowDialog() != true)
+                        return;
+
+                    SelectedPaymentType = "Kart";
+                    ReceivedAmount = cardWindow.ReceivedAmount;
+                    ChangeAmount = 0;
+                    DialogResult = true;
+                    return;
+                }
+
+                if (paymentType == "Parçalı Ödeme")
+                {
+                    var splitWindow =
+                        new SplitPaymentWindow(_totalAmount)
+                        {
+                            Owner = this
+                        };
+
+                    if (splitWindow.ShowDialog() != true)
+                        return;
+
+                    SelectedPaymentType =
+                        splitWindow.PaymentSummary;
+
+                    ReceivedAmount = _totalAmount;
+                    ChangeAmount = 0;
+
                     DialogResult = true;
                     return;
                 }

@@ -66,6 +66,20 @@ CREATE TABLE IF NOT EXISTS OrderItems
     UnitPrice REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS OrderPayments
+(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    OrderId INTEGER NOT NULL,
+    PaymentType TEXT NOT NULL,
+    Amount REAL NOT NULL,
+    Description TEXT,
+    CreatedAt TEXT NOT NULL,
+    FOREIGN KEY (OrderId) REFERENCES Orders(Id)
+);
+
+CREATE INDEX IF NOT EXISTS IX_OrderPayments_OrderId
+ON OrderPayments(OrderId);
+
 CREATE TABLE IF NOT EXISTS AppMetadata
 (
     Key TEXT PRIMARY KEY,
@@ -127,6 +141,167 @@ ORDER BY c.SortOrder, c.Id, p.SortOrder, p.Id;";
         }
 
         return products;
+    }
+
+    public static void UpdateProduct(
+        int productId,
+        string name,
+        string categoryName,
+        decimal price,
+        string imagePath)
+    {
+        if (productId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(productId));
+
+        name = name.Trim();
+        categoryName = categoryName.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException(
+                "Ürün adı boş bırakılamaz.",
+                nameof(name));
+
+        if (string.IsNullOrWhiteSpace(categoryName))
+            throw new ArgumentException(
+                "Kategori seçilmelidir.",
+                nameof(categoryName));
+
+        if (price < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(price),
+                "Ürün fiyatı negatif olamaz.");
+
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+UPDATE Products
+SET Name = $name,
+    CategoryId =
+    (
+        SELECT Id
+        FROM Categories
+        WHERE Name = $categoryName
+        LIMIT 1
+    ),
+    Price = $price,
+    ImagePath = $imagePath
+WHERE Id = $productId
+  AND EXISTS
+  (
+      SELECT 1
+      FROM Categories
+      WHERE Name = $categoryName
+  );";
+
+        command.Parameters.AddWithValue("$name", name);
+        command.Parameters.AddWithValue(
+            "$categoryName",
+            categoryName);
+        command.Parameters.AddWithValue("$price", price);
+        command.Parameters.AddWithValue("$imagePath", imagePath ?? string.Empty);
+        command.Parameters.AddWithValue(
+            "$productId",
+            productId);
+
+        int affectedRows = command.ExecuteNonQuery();
+
+        if (affectedRows == 0)
+        {
+            throw new InvalidOperationException(
+                "Ürün güncellenemedi. Seçilen kategori bulunamadı.");
+        }
+    }
+
+    public static int AddProduct(
+        string name,
+        string categoryName,
+        decimal price,
+        string imagePath)
+    {
+        name = name.Trim();
+        categoryName = categoryName.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException(
+                "Ürün adı boş bırakılamaz.",
+                nameof(name));
+
+        if (string.IsNullOrWhiteSpace(categoryName))
+            throw new ArgumentException(
+                "Kategori seçilmelidir.",
+                nameof(categoryName));
+
+        if (price < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(price),
+                "Ürün fiyatı negatif olamaz.");
+
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var transaction = connection.BeginTransaction();
+
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = @"
+INSERT INTO Products
+(
+    CategoryId,
+    Name,
+    Price,
+    ImagePath,
+    SortOrder,
+    IsActive
+)
+SELECT
+    Id,
+    $name,
+    $price,
+    $imagePath,
+    COALESCE
+    (
+        (
+            SELECT MAX(SortOrder) + 1
+            FROM Products
+            WHERE CategoryId = Categories.Id
+        ),
+        0
+    ),
+    1
+FROM Categories
+WHERE Name = $categoryName;";
+
+        command.Parameters.AddWithValue("$name", name);
+        command.Parameters.AddWithValue(
+            "$categoryName",
+            categoryName);
+        command.Parameters.AddWithValue("$price", price);
+        command.Parameters.AddWithValue("$imagePath", imagePath ?? string.Empty);
+
+        int affectedRows = command.ExecuteNonQuery();
+
+        if (affectedRows == 0)
+        {
+            throw new InvalidOperationException(
+                "Ürün eklenemedi. Seçilen kategori bulunamadı.");
+        }
+
+        using var idCommand = connection.CreateCommand();
+        idCommand.Transaction = transaction;
+        idCommand.CommandText =
+            "SELECT last_insert_rowid();";
+
+        int productId = Convert.ToInt32(
+            (long)(idCommand.ExecuteScalar() ?? 0L));
+
+        transaction.Commit();
+        return productId;
     }
 
     public static List<TableRecord> GetTables(string hall)
@@ -343,6 +518,379 @@ WHERE Id IN
         }
 
         transaction.Commit();
+    }
+
+    public static void AddOpenOrderPayment(
+    string tableName,
+    string paymentType,
+    decimal amount,
+    string? description = null)
+    {
+        if (amount <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(amount),
+                "Ödeme tutarı sıfırdan büyük olmalıdır.");
+
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var transaction =
+            connection.BeginTransaction();
+
+        long orderId;
+
+        using (var orderCommand = connection.CreateCommand())
+        {
+            orderCommand.Transaction = transaction;
+            orderCommand.CommandText = @"
+SELECT o.Id
+FROM Orders o
+INNER JOIN Tables t ON t.Id = o.TableId
+WHERE t.Name = $tableName
+  AND o.Status = 0
+  AND o.ClosedAt IS NULL
+LIMIT 1;";
+
+            orderCommand.Parameters.AddWithValue(
+                "$tableName",
+                tableName);
+
+            object? result = orderCommand.ExecuteScalar();
+
+            if (result is null)
+            {
+                throw new InvalidOperationException(
+                    "Ödeme kaydedilecek açık adisyon bulunamadı.");
+            }
+
+            orderId = Convert.ToInt64(result);
+        }
+
+        using (var paymentCommand = connection.CreateCommand())
+        {
+            paymentCommand.Transaction = transaction;
+            paymentCommand.CommandText = @"
+INSERT INTO OrderPayments
+(
+    OrderId,
+    PaymentType,
+    Amount,
+    Description,
+    CreatedAt
+)
+VALUES
+(
+    $orderId,
+    $paymentType,
+    $amount,
+    $description,
+    $createdAt
+);";
+
+            paymentCommand.Parameters.AddWithValue(
+                "$orderId",
+                orderId);
+
+            paymentCommand.Parameters.AddWithValue(
+                "$paymentType",
+                paymentType);
+
+            paymentCommand.Parameters.AddWithValue(
+                "$amount",
+                amount);
+
+            paymentCommand.Parameters.AddWithValue(
+                "$description",
+                description ?? string.Empty);
+
+            paymentCommand.Parameters.AddWithValue(
+                "$createdAt",
+                DateTime.Now.ToString("O"));
+
+            paymentCommand.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    public static bool ProcessProductPayment(
+        string tableName,
+        IEnumerable<SavedOrderItem> selectedItems,
+        string paymentType,
+        decimal amount,
+        string? description = null)
+    {
+        var selections = selectedItems
+            .Where(item => item.Quantity > 0)
+            .GroupBy(item => item.ProductId)
+            .Select(group => new SavedOrderItem(
+                group.Key,
+                group.First().Name,
+                group.Sum(item => item.Quantity),
+                group.First().UnitPrice))
+            .ToList();
+
+        if (selections.Count == 0)
+            throw new InvalidOperationException(
+                "Ödeme için seçilmiş ürün bulunamadı.");
+
+        if (amount <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(amount),
+                "Ödeme tutarı sıfırdan büyük olmalıdır.");
+
+        decimal selectionTotal = selections.Sum(
+            item => item.UnitPrice * item.Quantity);
+
+        if (Math.Abs(selectionTotal - amount) > 0.01m)
+            throw new InvalidOperationException(
+                "Seçilen ürünlerin toplamı ile ödeme tutarı uyuşmuyor.");
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var transaction = connection.BeginTransaction();
+
+        long orderId;
+        long tableId;
+
+        using (var orderCommand = connection.CreateCommand())
+        {
+            orderCommand.Transaction = transaction;
+            orderCommand.CommandText = @"
+SELECT o.Id, o.TableId
+FROM Orders o
+INNER JOIN Tables t ON t.Id = o.TableId
+WHERE t.Name = $tableName
+  AND o.Status = 0
+  AND o.ClosedAt IS NULL
+LIMIT 1;";
+
+            orderCommand.Parameters.AddWithValue("$tableName", tableName);
+
+            using var reader = orderCommand.ExecuteReader();
+
+            if (!reader.Read())
+            {
+                throw new InvalidOperationException(
+                    "Ödeme kaydedilecek açık adisyon bulunamadı.");
+            }
+
+            orderId = reader.GetInt64(0);
+            tableId = reader.GetInt64(1);
+        }
+
+        foreach (SavedOrderItem selection in selections)
+        {
+            long orderItemId;
+            int currentQuantity;
+            decimal currentUnitPrice;
+
+            using (var itemCommand = connection.CreateCommand())
+            {
+                itemCommand.Transaction = transaction;
+                itemCommand.CommandText = @"
+SELECT Id, Quantity, UnitPrice
+FROM OrderItems
+WHERE OrderId = $orderId
+  AND ProductId = $productId
+LIMIT 1;";
+
+                itemCommand.Parameters.AddWithValue("$orderId", orderId);
+                itemCommand.Parameters.AddWithValue(
+                    "$productId",
+                    selection.ProductId);
+
+                using var reader = itemCommand.ExecuteReader();
+
+                if (!reader.Read())
+                {
+                    throw new InvalidOperationException(
+                        $"{selection.Name} açık adisyonda bulunamadı.");
+                }
+
+                orderItemId = reader.GetInt64(0);
+                currentQuantity = reader.GetInt32(1);
+                currentUnitPrice = Convert.ToDecimal(
+                    reader.GetDouble(2),
+                    CultureInfo.InvariantCulture);
+            }
+
+            if (selection.Quantity > currentQuantity)
+            {
+                throw new InvalidOperationException(
+                    $"{selection.Name} için seçilen adet adisyondaki adedi aşıyor.");
+            }
+
+            if (Math.Abs(currentUnitPrice - selection.UnitPrice) > 0.01m)
+            {
+                throw new InvalidOperationException(
+                    $"{selection.Name} ürününün fiyatı değişmiş. Adisyonu yenileyin.");
+            }
+
+            if (selection.Quantity == currentQuantity)
+            {
+                using var deleteCommand = connection.CreateCommand();
+                deleteCommand.Transaction = transaction;
+                deleteCommand.CommandText =
+                    "DELETE FROM OrderItems WHERE Id = $orderItemId;";
+                deleteCommand.Parameters.AddWithValue(
+                    "$orderItemId",
+                    orderItemId);
+                deleteCommand.ExecuteNonQuery();
+            }
+            else
+            {
+                using var updateCommand = connection.CreateCommand();
+                updateCommand.Transaction = transaction;
+                updateCommand.CommandText = @"
+UPDATE OrderItems
+SET Quantity = Quantity - $quantity
+WHERE Id = $orderItemId;";
+
+                updateCommand.Parameters.AddWithValue(
+                    "$quantity",
+                    selection.Quantity);
+                updateCommand.Parameters.AddWithValue(
+                    "$orderItemId",
+                    orderItemId);
+                updateCommand.ExecuteNonQuery();
+            }
+        }
+
+        using (var paymentCommand = connection.CreateCommand())
+        {
+            paymentCommand.Transaction = transaction;
+            paymentCommand.CommandText = @"
+INSERT INTO OrderPayments
+(
+    OrderId,
+    PaymentType,
+    Amount,
+    Description,
+    CreatedAt
+)
+VALUES
+(
+    $orderId,
+    $paymentType,
+    $amount,
+    $description,
+    $createdAt
+);";
+
+            paymentCommand.Parameters.AddWithValue("$orderId", orderId);
+            paymentCommand.Parameters.AddWithValue(
+                "$paymentType",
+                paymentType);
+            paymentCommand.Parameters.AddWithValue("$amount", amount);
+            paymentCommand.Parameters.AddWithValue(
+                "$description",
+                description ?? string.Empty);
+            paymentCommand.Parameters.AddWithValue(
+                "$createdAt",
+                DateTime.Now.ToString("O"));
+            paymentCommand.ExecuteNonQuery();
+        }
+
+        bool hasRemainingItems;
+
+        using (var countCommand = connection.CreateCommand())
+        {
+            countCommand.Transaction = transaction;
+            countCommand.CommandText = @"
+SELECT EXISTS
+(
+    SELECT 1
+    FROM OrderItems
+    WHERE OrderId = $orderId
+      AND Quantity > 0
+);";
+
+            countCommand.Parameters.AddWithValue("$orderId", orderId);
+            hasRemainingItems =
+                Convert.ToInt32(countCommand.ExecuteScalar()) == 1;
+        }
+
+        if (hasRemainingItems)
+        {
+            using var tableCommand = connection.CreateCommand();
+            tableCommand.Transaction = transaction;
+            tableCommand.CommandText =
+                "UPDATE Tables SET Status = 1 WHERE Id = $tableId;";
+            tableCommand.Parameters.AddWithValue("$tableId", tableId);
+            tableCommand.ExecuteNonQuery();
+
+            transaction.Commit();
+            return false;
+        }
+
+        decimal paidTotal;
+        int paymentTypeCount;
+        string finalPaymentType;
+
+        using (var totalCommand = connection.CreateCommand())
+        {
+            totalCommand.Transaction = transaction;
+            totalCommand.CommandText = @"
+SELECT COALESCE(SUM(Amount), 0),
+       COUNT(DISTINCT PaymentType),
+       COALESCE(MIN(PaymentType), '')
+FROM OrderPayments
+WHERE OrderId = $orderId;";
+
+            totalCommand.Parameters.AddWithValue("$orderId", orderId);
+
+            using var reader = totalCommand.ExecuteReader();
+            reader.Read();
+
+            paidTotal = Convert.ToDecimal(
+                reader.GetDouble(0),
+                CultureInfo.InvariantCulture);
+            paymentTypeCount = reader.GetInt32(1);
+            finalPaymentType = reader.GetString(2);
+        }
+
+        if (paymentTypeCount > 1)
+            finalPaymentType = "Çoklu Ödeme";
+
+        using (var closeCommand = connection.CreateCommand())
+        {
+            closeCommand.Transaction = transaction;
+            closeCommand.CommandText = @"
+UPDATE Orders
+SET ClosedAt = $closedAt,
+    Status = 1,
+    PaymentType = $paymentType,
+    TotalAmount = $totalAmount
+WHERE Id = $orderId;";
+
+            closeCommand.Parameters.AddWithValue(
+                "$closedAt",
+                DateTime.Now.ToString("O"));
+            closeCommand.Parameters.AddWithValue(
+                "$paymentType",
+                finalPaymentType);
+            closeCommand.Parameters.AddWithValue(
+                "$totalAmount",
+                paidTotal);
+            closeCommand.Parameters.AddWithValue("$orderId", orderId);
+            closeCommand.ExecuteNonQuery();
+        }
+
+        using (var tableCommand = connection.CreateCommand())
+        {
+            tableCommand.Transaction = transaction;
+            tableCommand.CommandText =
+                "UPDATE Tables SET Status = 0 WHERE Id = $tableId;";
+            tableCommand.Parameters.AddWithValue("$tableId", tableId);
+            tableCommand.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+        return true;
     }
 
     public static void CloseOpenOrder(

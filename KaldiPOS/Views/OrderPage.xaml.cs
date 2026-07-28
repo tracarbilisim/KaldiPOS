@@ -235,6 +235,13 @@ namespace KaldiPOS.Views
                 return;
             }
 
+            if (paymentWindow.SelectedPaymentType ==
+                "Ürün Seçerek Ödeme")
+            {
+                TakeProductPayment();
+                return;
+            }
+
             Database.SaveOpenOrder(
                 _tableName,
                 OrderItems.Select(item => new SavedOrderItem(
@@ -252,6 +259,88 @@ namespace KaldiPOS.Views
             UpdateTotals();
 
             BackRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void TakeProductPayment()
+        {
+            var productPaymentWindow =
+                new ProductSplitPaymentWindow(OrderItems)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+
+            if (productPaymentWindow.ShowDialog() != true ||
+                string.IsNullOrWhiteSpace(
+                    productPaymentWindow.SelectedPaymentType) ||
+                productPaymentWindow.SelectedProducts.Count == 0)
+            {
+                return;
+            }
+
+            Database.SaveOpenOrder(
+                _tableName,
+                OrderItems.Select(item => new SavedOrderItem(
+                    item.ProductId,
+                    item.Name,
+                    item.Quantity,
+                    item.Price)));
+
+            var selectedItems =
+                productPaymentWindow.SelectedProducts
+                    .Select(item => new SavedOrderItem(
+                        item.ProductId,
+                        item.Name,
+                        item.Quantity,
+                        item.UnitPrice))
+                    .ToList();
+
+            string description = string.Join(
+                ", ",
+                selectedItems.Select(item =>
+                    $"{item.Quantity} × {item.Name}"));
+
+            bool orderClosed = Database.ProcessProductPayment(
+                _tableName,
+                selectedItems,
+                productPaymentWindow.SelectedPaymentType,
+                productPaymentWindow.SelectedTotal,
+                description);
+
+            RemovePaidProducts(selectedItems);
+            UpdateTotals();
+
+            if (orderClosed)
+            {
+                OrderItems.Clear();
+                UpdateTotals();
+                BackRequested?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
+            MessageBox.Show(
+                "Seçilen ürünlerin ödemesi alındı. " +
+                "Masa kalan ürünlerle açık tutuluyor.",
+                "KaldiPOS",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+
+        private void RemovePaidProducts(
+            IEnumerable<SavedOrderItem> paidItems)
+        {
+            foreach (SavedOrderItem paidItem in paidItems)
+            {
+                OrderItem? orderItem = OrderItems.FirstOrDefault(
+                    item => item.ProductId == paidItem.ProductId);
+
+                if (orderItem is null)
+                    continue;
+
+                if (paidItem.Quantity >= orderItem.Quantity)
+                    OrderItems.Remove(orderItem);
+                else
+                    orderItem.Quantity -= paidItem.Quantity;
+            }
         }
 
         private void BackButton_Click(object sender, RoutedEventArgs e)

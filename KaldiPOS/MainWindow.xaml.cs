@@ -130,15 +130,69 @@ namespace KaldiPOS
                 return;
             }
 
-            PageTitleText.Text = pageName;
-            PageDescriptionText.Text = pageName switch
+            if (pageName == "Ürünler")
             {
-                "Ürünler" => "Ürün ve kategori yönetimi",
-                "Raporlar" => "Satış ve işlem raporlarını görüntüleyin",
-                "Gün Sonu" => "Günlük kasa kapanış işlemlerini yönetin",
-                "Ayarlar" => "KaldiPOS sistem ayarlarını yönetin",
+                ShowPage(
+                    new ProductsPage(),
+                    "Ürünler",
+                    "Ürün ve kategori yönetimi");
+                return;
+            }
+
+            ShowPlaceholder(pageName);
+        }
+
+        private void ShowPage(
+            Page page,
+            string title,
+            string description)
+        {
+            Frame frame = new()
+            {
+                NavigationUIVisibility =
+                    NavigationUIVisibility.Hidden,
+                Background = Brushes.Transparent,
+                Content = page
+            };
+
+            ContentCard.Padding = new Thickness(0);
+            ContentCard.Child = frame;
+
+            PageTitleText.Text = title;
+            PageDescriptionText.Text = description;
+        }
+
+        private void ShowPlaceholder(string pageName)
+        {
+            string description = pageName switch
+            {
+                "Raporlar" =>
+                    "Satış ve işlem raporlarını görüntüleyin",
+                "Gün Sonu" =>
+                    "Günlük kasa kapanış işlemlerini yönetin",
+                "Ayarlar" =>
+                    "KaldiPOS sistem ayarlarını yönetin",
                 _ => string.Empty
             };
+
+            Grid placeholder = new();
+
+            placeholder.Children.Add(new TextBlock
+            {
+                Text = $"{pageName} modülü henüz hazırlanmadı.",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 20,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(
+                    Color.FromRgb(157, 151, 141))
+            });
+
+            ContentCard.Padding = new Thickness(14);
+            ContentCard.Child = placeholder;
+
+            PageTitleText.Text = pageName;
+            PageDescriptionText.Text = description;
         }
 
         private void TableButton_Click(object sender, RoutedEventArgs e)
