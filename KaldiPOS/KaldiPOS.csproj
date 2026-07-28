@@ -12,6 +12,9 @@
     <None Remove="Assets\kaldi-logo.png" />
     <None Remove="Assets\login-background.png" />
     <None Remove="Assets\splash-background.png" />
+    <None Remove="Assets\Products\*.png" />
+    <None Remove="Assets\Products\Kaldi\*.jpg" />
+    <None Remove="Assets\Data\kaldi-menu.json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,6 +38,19 @@
     <Resource Include="Assets\splash-background.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
+    <Resource Include="Assets\Products\*.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Content Include="Assets\Products\Kaldi\*.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Data\kaldi-menu.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
   </ItemGroup>
 
 </Project>

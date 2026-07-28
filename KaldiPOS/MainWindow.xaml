@@ -5,14 +5,15 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         WindowState="Maximized"
+        MinWidth="1024"
+        MinHeight="768"
         Background="#11100E"
         KeyDown="Window_KeyDown">
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="230" />
+            <ColumnDefinition x:Name="MenuColumn" Width="64" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition x:Name="RightPanelColumn" Width="290" />
         </Grid.ColumnDefinitions>
 
         <!-- SOL MENÜ -->
@@ -21,7 +22,7 @@
                 BorderBrush="#765A32"
                 BorderThickness="0,0,1,0">
 
-            <Grid Margin="18">
+            <Grid Margin="8">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -29,117 +30,156 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel>
-                    <Image Source="/Assets/kaldi-logo.png"
-                           Height="95"
-                           Margin="10,8,10,4"
-                           Stretch="Uniform" />
+                    <Button Height="46"
+                            Content="☰"
+                            FontSize="24"
+                            Style="{StaticResource Button.Secondary}"
+                            Click="ToggleMenuButton_Click" />
 
-                    <TextBlock HorizontalAlignment="Center"
-                               FontSize="23"
+                    <Image x:Name="MenuLogo"
+                           Source="/Assets/kaldi-logo.png"
+                           Height="76"
+                           Margin="6,14,6,4"
+                           Stretch="Uniform"
+                           Visibility="Collapsed" />
+
+                    <TextBlock x:Name="MenuBrand"
+                               Margin="0,2,0,0"
+                               HorizontalAlignment="Center"
+                               FontSize="20"
                                FontWeight="Bold"
-                               Foreground="#FFFDF8">
+                               Foreground="#FFFDF8"
+                               Visibility="Collapsed">
                         <Run Text="Kaldi" />
-                        <Run Text="POS"
-                             Foreground="#E2BE79" />
+                        <Run Text="POS" Foreground="#E2BE79" />
                     </TextBlock>
 
                     <Border Height="1"
-                            Margin="5,18,5,22"
+                            Margin="4,14,4,14"
                             Background="#765A32" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="1">
-                    <Button Content="▦   Masalar"
-                            Tag="Masalar"
+                    <Button Tag="Masalar"
                             Click="MenuButton_Click"
                             Style="{StaticResource Button.Primary}"
-                            Margin="0,0,0,10"
-                            HorizontalContentAlignment="Left" />
+                            Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="▦" FontSize="20" HorizontalAlignment="Center" />
+                            <TextBlock x:Name="TablesMenuText" Grid.Column="1" Text="Masalar" VerticalAlignment="Center" Visibility="Collapsed" />
+                        </Grid>
+                    </Button>
 
-                    <Button Content="☕   Ürünler"
-                            Tag="Ürünler"
+                    <Button Tag="Ürünler"
                             Click="MenuButton_Click"
                             Style="{StaticResource Button.Secondary}"
-                            Margin="0,0,0,10"
-                            HorizontalContentAlignment="Left" />
+                            Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="☕" FontSize="19" HorizontalAlignment="Center" />
+                            <TextBlock x:Name="ProductsMenuText" Grid.Column="1" Text="Ürünler" VerticalAlignment="Center" Visibility="Collapsed" />
+                        </Grid>
+                    </Button>
 
-                    <Button Content="▣   Raporlar"
-                            Tag="Raporlar"
+                    <Button Tag="Raporlar"
                             Click="MenuButton_Click"
                             Style="{StaticResource Button.Secondary}"
-                            Margin="0,0,0,10"
-                            HorizontalContentAlignment="Left" />
+                            Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="▣" FontSize="18" HorizontalAlignment="Center" />
+                            <TextBlock x:Name="ReportsMenuText" Grid.Column="1" Text="Raporlar" VerticalAlignment="Center" Visibility="Collapsed" />
+                        </Grid>
+                    </Button>
 
-                    <Button Content="✓   Gün Sonu"
-                            Tag="Gün Sonu"
+                    <Button Tag="Gün Sonu"
                             Click="MenuButton_Click"
                             Style="{StaticResource Button.Secondary}"
-                            Margin="0,0,0,10"
-                            HorizontalContentAlignment="Left" />
+                            Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="✓" FontSize="20" HorizontalAlignment="Center" />
+                            <TextBlock x:Name="EndOfDayMenuText" Grid.Column="1" Text="Gün Sonu" VerticalAlignment="Center" Visibility="Collapsed" />
+                        </Grid>
+                    </Button>
 
-                    <Button Content="⚙   Ayarlar"
-                            Tag="Ayarlar"
+                    <Button Tag="Ayarlar"
                             Click="MenuButton_Click"
-                            Style="{StaticResource Button.Secondary}"
-                            Margin="0,0,0,10"
-                            HorizontalContentAlignment="Left" />
+                            Style="{StaticResource Button.Secondary}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="⚙" FontSize="19" HorizontalAlignment="Center" />
+                            <TextBlock x:Name="SettingsMenuText" Grid.Column="1" Text="Ayarlar" VerticalAlignment="Center" Visibility="Collapsed" />
+                        </Grid>
+                    </Button>
                 </StackPanel>
 
                 <StackPanel Grid.Row="2">
                     <Border Height="1"
-                            Margin="5,0,5,16"
+                            Margin="4,0,4,10"
                             Background="#765A32" />
 
-                    <TextBlock Text="Designed &amp; Developed by"
-                               HorizontalAlignment="Center"
-                               FontSize="11"
-                               Foreground="#9D978D" />
-
-                    <TextBlock Text="Berkan ACAR"
-                               Margin="0,3,0,14"
-                               HorizontalAlignment="Center"
-                               FontSize="13"
-                               FontWeight="SemiBold"
-                               Foreground="#E2BE79" />
-
-                    <Button Content="Oturumu Kapat"
-                            Style="{StaticResource Button.Secondary}"
-                            Click="LogoutButton_Click" />
+                    <Button Height="44"
+                            Click="LogoutButton_Click"
+                            Style="{StaticResource Button.Secondary}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="↪" FontSize="21" HorizontalAlignment="Center" />
+                            <TextBlock x:Name="LogoutMenuText" Grid.Column="1" Text="Oturumu Kapat" VerticalAlignment="Center" Visibility="Collapsed" />
+                        </Grid>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- ORTA ALAN -->
-        <Grid Grid.Column="1"
-              Background="#11100E">
-
+        <!-- ANA ÇALIŞMA ALANI -->
+        <Grid Grid.Column="1" Background="#11100E">
             <Grid.RowDefinitions>
-                <RowDefinition Height="84" />
+                <RowDefinition Height="72" />
                 <RowDefinition Height="*" />
-                <RowDefinition Height="42" />
+                <RowDefinition Height="28" />
             </Grid.RowDefinitions>
 
             <!-- ÜST BAR -->
             <Border Grid.Row="0"
-                    Margin="20,16,20,0"
-                    Padding="22,0"
+                    Margin="12,10,12,0"
+                    Padding="18,0"
                     Background="#1A1815"
                     BorderBrush="#765A32"
                     BorderThickness="1"
-                    CornerRadius="12">
+                    CornerRadius="10">
 
                 <Grid>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock x:Name="PageTitleText"
                                    Text="Masalar"
-                                   FontSize="25"
+                                   FontSize="23"
                                    FontWeight="SemiBold"
                                    Foreground="#FFFDF8" />
 
                         <TextBlock x:Name="PageDescriptionText"
                                    Text="Salon ve masa durumlarını yönetin"
-                                   Margin="0,3,0,0"
-                                   FontSize="13"
+                                   Margin="0,2,0,0"
+                                   FontSize="12"
                                    Foreground="#9D978D" />
                     </StackPanel>
 
@@ -147,33 +187,25 @@
                                 VerticalAlignment="Center"
                                 Orientation="Horizontal">
 
-                        <StackPanel Margin="0,0,22,0"
-                                    VerticalAlignment="Center">
+                        <StackPanel Margin="0,0,18,0" VerticalAlignment="Center">
                             <TextBlock x:Name="DateText"
                                        HorizontalAlignment="Right"
-                                       FontSize="13"
+                                       FontSize="12"
                                        Foreground="#DED8CD" />
-
                             <TextBlock x:Name="TimeText"
                                        HorizontalAlignment="Right"
-                                       FontSize="18"
+                                       FontSize="17"
                                        FontWeight="SemiBold"
                                        Foreground="#E2BE79" />
                         </StackPanel>
 
-                        <Border Width="1"
-                                Height="38"
-                                Margin="0,0,20,0"
-                                Background="#765A32" />
+                        <Border Width="1" Height="34" Margin="0,0,16,0" Background="#765A32" />
 
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Aktif Kullanıcı"
-                                       FontSize="11"
-                                       Foreground="#9D978D" />
-
+                            <TextBlock Text="Aktif Kullanıcı" FontSize="10" Foreground="#9D978D" />
                             <TextBlock Text="Yönetici"
-                                       Margin="0,3,0,0"
-                                       FontSize="15"
+                                       Margin="0,2,0,0"
+                                       FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="#FFFDF8" />
                         </StackPanel>
@@ -182,256 +214,66 @@
             </Border>
 
             <!-- İÇERİK -->
-            <Grid Grid.Row="1"
-                  Margin="20">
-
+            <Grid Grid.Row="1" Margin="12,10,12,8">
                 <Border x:Name="ContentCard"
-                        Padding="24"
+                        Padding="14"
                         Background="#1A1815"
                         BorderBrush="#765A32"
                         BorderThickness="1"
-                        CornerRadius="14">
+                        CornerRadius="12">
 
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="42" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
                         <Grid>
-                            <StackPanel>
-                                <TextBlock Text="Salonlar"
-                                           FontSize="19"
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Salon"
+                                           FontSize="18"
                                            FontWeight="SemiBold"
                                            Foreground="#FFFDF8" />
-
-                                <TextBlock Text="Bir salon seçerek masaları görüntüleyin"
-                                           Margin="0,4,0,0"
-                                           FontSize="13"
+                                <TextBlock Text="  •  60 Masa"
+                                           Margin="8,1,0,0"
+                                           FontSize="12"
                                            Foreground="#9D978D" />
                             </StackPanel>
 
-                            <StackPanel HorizontalAlignment="Right"
-                                        Orientation="Horizontal">
-                                <Button Content="İç Salon"
-                                        Style="{StaticResource Button.Primary}"
-                                        Margin="0,0,8,0" />
-
-                                <Button Content="Bahçe"
-                                        Style="{StaticResource Button.Secondary}"
-                                        Margin="0,0,8,0" />
-
-                                <Button Content="Teras"
-                                        Style="{StaticResource Button.Secondary}" />
-                            </StackPanel>
+                            <Border HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Padding="14,6"
+                                    Background="#D2A654"
+                                    CornerRadius="8">
+                                <TextBlock Text="SALON"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="#17130E" />
+                            </Border>
                         </Grid>
 
-                        <UniformGrid Grid.Row="1"
-                                     Columns="4"
-                                     Margin="0,24,0,0">
-
-                            <Button Content="MASA 1&#x0a;Boş"
-                                    Tag="Masa 1"
-                                    Click="TableButton_Click"
-                                    Style="{StaticResource Button.Secondary}"
-                                    Margin="7"
-                                    FontSize="17"
-                                    MinHeight="115" />
-
-                            <Button Content="MASA 2&#x0a;Boş"
-                                    Tag="Masa 2"
-                                    Click="TableButton_Click"
-                                    Style="{StaticResource Button.Secondary}"
-                                    Margin="7"
-                                    FontSize="17"
-                                    MinHeight="115" />
-
-                            <Button Content="MASA 3&#x0a;Boş"
-                                    Tag="Masa 3"
-                                    Click="TableButton_Click"
-                                    Style="{StaticResource Button.Secondary}"
-                                    Margin="7"
-                                    FontSize="17"
-                                    MinHeight="115" />
-
-                            <Button Content="MASA 4&#x0a;Boş"
-                                    Tag="Masa 4"
-                                    Click="TableButton_Click"
-                                    Style="{StaticResource Button.Secondary}"
-                                    Margin="7"
-                                    FontSize="17"
-                                    MinHeight="115" />
-
-                            <Button Content="MASA 5&#x0a;Boş"
-                                    Tag="Masa 5"
-                                    Click="TableButton_Click"
-                                    Style="{StaticResource Button.Secondary}"
-                                    Margin="7"
-                                    FontSize="17"
-                                    MinHeight="115" />
-
-                            <Button Content="MASA 6&#x0a;Boş"
-                                    Tag="Masa 6"
-                                    Click="TableButton_Click"
-                                    Style="{StaticResource Button.Secondary}"
-                                    Margin="7"
-                                    FontSize="17"
-                                    MinHeight="115" />
-
-                            <Button Content="MASA 7&#x0a;Boş"
-                                    Tag="Masa 7"
-                                    Click="TableButton_Click"
-                                    Style="{StaticResource Button.Secondary}"
-                                    Margin="7"
-                                    FontSize="17"
-                                    MinHeight="115" />
-
-                            <Button Content="MASA 8&#x0a;Boş"
-                                    Tag="Masa 8"
-                                    Click="TableButton_Click"
-                                    Style="{StaticResource Button.Secondary}"
-                                    Margin="7"
-                                    FontSize="17"
-                                    MinHeight="115" />
-                        </UniformGrid>
+                        <UniformGrid x:Name="TablesPanel"
+                                     Grid.Row="1"
+                                     Rows="6"
+                                     Columns="10"
+                                     Margin="0,6,0,0" />
                     </Grid>
                 </Border>
             </Grid>
 
             <!-- ALT DURUM -->
-            <Grid Grid.Row="2"
-                  Margin="22,0">
-
-                <StackPanel Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                    <Ellipse Width="9"
-                             Height="9"
-                             Margin="0,0,8,0"
-                             Fill="#5FB67A" />
-
-                    <TextBlock Text="Sistem hazır"
-                               VerticalAlignment="Center"
-                               FontSize="12"
-                               Foreground="#9D978D" />
+            <Grid Grid.Row="2" Margin="14,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="8" Height="8" Margin="0,0,7,0" Fill="#5FB67A" />
+                    <TextBlock Text="Sistem hazır" FontSize="11" Foreground="#9D978D" />
                 </StackPanel>
 
                 <TextBlock Text="KaldiPOS v1.0.0"
                            HorizontalAlignment="Right"
                            VerticalAlignment="Center"
-                           FontSize="12"
+                           FontSize="11"
                            Foreground="#9D978D" />
             </Grid>
         </Grid>
-
-        <!-- SAĞ PANEL -->
-        <Border x:Name="RightStatusPanel"
-                Grid.Column="2"
-                Margin="0"
-                Padding="18"
-                Background="#181613"
-                BorderBrush="#765A32"
-                BorderThickness="1,0,0,0">
-
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <TextBlock Text="Anlık Durum"
-                           Margin="0,6,0,18"
-                           FontSize="19"
-                           FontWeight="SemiBold"
-                           Foreground="#FFFDF8" />
-
-                <Border Grid.Row="1"
-                        Padding="16"
-                        Margin="0,0,0,12"
-                        Background="#24211D"
-                        BorderBrush="#765A32"
-                        BorderThickness="1"
-                        CornerRadius="12">
-
-                    <Grid>
-                        <StackPanel>
-                            <TextBlock Text="Açık Masa"
-                                       FontSize="12"
-                                       Foreground="#9D978D" />
-
-                            <TextBlock Text="0"
-                                       Margin="0,5,0,0"
-                                       FontSize="28"
-                                       FontWeight="Bold"
-                                       Foreground="#E2BE79" />
-                        </StackPanel>
-
-                        <TextBlock Text="▦"
-                                   HorizontalAlignment="Right"
-                                   VerticalAlignment="Center"
-                                   FontSize="30"
-                                   Foreground="#765A32" />
-                    </Grid>
-                </Border>
-
-                <Border Grid.Row="2"
-                        Padding="16"
-                        Background="#24211D"
-                        BorderBrush="#765A32"
-                        BorderThickness="1"
-                        CornerRadius="12">
-
-                    <Grid>
-                        <StackPanel>
-                            <TextBlock Text="Bugünkü Satış"
-                                       FontSize="12"
-                                       Foreground="#9D978D" />
-
-                            <TextBlock Text="0,00 ₺"
-                                       Margin="0,5,0,0"
-                                       FontSize="25"
-                                       FontWeight="Bold"
-                                       Foreground="#5FB67A" />
-                        </StackPanel>
-
-                        <TextBlock Text="₺"
-                                   HorizontalAlignment="Right"
-                                   VerticalAlignment="Center"
-                                   FontSize="32"
-                                   Foreground="#765A32" />
-                    </Grid>
-                </Border>
-
-                <StackPanel Grid.Row="3"
-                            VerticalAlignment="Bottom">
-
-                    <Border Padding="14"
-                            Margin="0,0,0,12"
-                            Background="#24211D"
-                            BorderBrush="#765A32"
-                            BorderThickness="1"
-                            CornerRadius="12">
-
-                        <StackPanel>
-                            <TextBlock Text="Kasa Durumu"
-                                       FontSize="13"
-                                       FontWeight="SemiBold"
-                                       Foreground="#FFFDF8" />
-
-                            <TextBlock Text="Kasa açık ve işlem almaya hazır."
-                                       Margin="0,6,0,0"
-                                       FontSize="12"
-                                       TextWrapping="Wrap"
-                                       Foreground="#9D978D" />
-                        </StackPanel>
-                    </Border>
-
-                    <Button Content="Uygulamayı Kapat"
-                            Style="{StaticResource Button.Danger}"
-                            Click="ExitButton_Click" />
-                </StackPanel>
-            </Grid>
-        </Border>
     </Grid>
 </Window>

@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using KaldiPOS.Views;
+using KaldiPOS.Data;
 
 namespace KaldiPOS
 {
@@ -8,6 +9,7 @@ namespace KaldiPOS
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+            Database.Initialize();
 
             var splash = new SplashWindow();
             splash.Show();

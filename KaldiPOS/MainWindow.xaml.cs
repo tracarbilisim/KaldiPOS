@@ -2,8 +2,10 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Navigation;
 using System.Windows.Threading;
+using KaldiPOS.Data;
 using KaldiPOS.Views;
 
 namespace KaldiPOS
@@ -12,6 +14,7 @@ namespace KaldiPOS
     {
         private readonly DispatcherTimer _clockTimer;
         private readonly UIElement _tablesContent;
+        private bool _isMenuExpanded;
 
         public MainWindow()
         {
@@ -27,6 +30,7 @@ namespace KaldiPOS
             _clockTimer.Tick += ClockTimer_Tick;
 
             UpdateClock();
+            LoadTables();
             _clockTimer.Start();
         }
 
@@ -39,6 +43,78 @@ namespace KaldiPOS
         {
             DateText.Text = DateTime.Now.ToString("dd MMMM yyyy dddd");
             TimeText.Text = DateTime.Now.ToString("HH:mm:ss");
+        }
+
+        private void LoadTables()
+        {
+            TablesPanel.Children.Clear();
+
+            foreach (TableRecord table in Database.GetTables("Salon"))
+            {
+                bool isOpen = table.Status == 1;
+
+                TextBlock tableName = new()
+                {
+                    Text = table.Name.ToUpperInvariant(),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    FontSize = 14,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = Brushes.White
+                };
+
+                TextBlock tableStatus = new()
+                {
+                    Text = isOpen ? "Açık" : "Boş",
+                    Margin = new Thickness(0, 3, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    FontSize = 12,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = isOpen
+                        ? new SolidColorBrush(Color.FromRgb(226, 190, 121))
+                        : new SolidColorBrush(Color.FromRgb(95, 182, 122))
+                };
+
+                StackPanel content = new()
+                {
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                content.Children.Add(tableName);
+                content.Children.Add(tableStatus);
+
+                Button button = new()
+                {
+                    Margin = new Thickness(4),
+                    Padding = new Thickness(4),
+                    MinWidth = 72,
+                    MinHeight = 66,
+                    Tag = table,
+                    Content = content,
+                    Style = (Style)FindResource(
+                        isOpen ? "Button.Primary" : "Button.Secondary")
+                };
+
+                button.Click += TableButton_Click;
+                TablesPanel.Children.Add(button);
+            }
+        }
+
+        private void ToggleMenuButton_Click(object sender, RoutedEventArgs e)
+        {
+            _isMenuExpanded = !_isMenuExpanded;
+            MenuColumn.Width = new GridLength(_isMenuExpanded ? 210 : 64);
+
+            Visibility visibility = _isMenuExpanded
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+            MenuLogo.Visibility = visibility;
+            MenuBrand.Visibility = visibility;
+            TablesMenuText.Visibility = visibility;
+            ProductsMenuText.Visibility = visibility;
+            ReportsMenuText.Visibility = visibility;
+            EndOfDayMenuText.Visibility = visibility;
+            SettingsMenuText.Visibility = visibility;
+            LogoutMenuText.Visibility = visibility;
         }
 
         private void MenuButton_Click(object sender, RoutedEventArgs e)
@@ -55,7 +131,6 @@ namespace KaldiPOS
             }
 
             PageTitleText.Text = pageName;
-
             PageDescriptionText.Text = pageName switch
             {
                 "Ürünler" => "Ürün ve kategori yönetimi",
@@ -68,28 +143,23 @@ namespace KaldiPOS
 
         private void TableButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button button)
+            if (sender is not Button button || button.Tag is not TableRecord table)
                 return;
 
-            string tableName = button.Tag?.ToString() ?? "Masa";
-
-            OrderPage orderPage = new(tableName);
+            OrderPage orderPage = new(table.Name);
             orderPage.BackRequested += OrderPage_BackRequested;
 
             Frame orderFrame = new()
             {
                 NavigationUIVisibility = NavigationUIVisibility.Hidden,
-                Background = System.Windows.Media.Brushes.Transparent,
+                Background = Brushes.Transparent,
                 Content = orderPage
             };
 
             ContentCard.Padding = new Thickness(0);
             ContentCard.Child = orderFrame;
 
-            RightStatusPanel.Visibility = Visibility.Collapsed;
-            RightPanelColumn.Width = new GridLength(0);
-
-            PageTitleText.Text = tableName;
+            PageTitleText.Text = table.Name;
             PageDescriptionText.Text = "Sipariş ve adisyon işlemleri";
         }
 
@@ -100,11 +170,10 @@ namespace KaldiPOS
 
         private void ShowTables()
         {
-            ContentCard.Padding = new Thickness(24);
+            ContentCard.Padding = new Thickness(14);
             ContentCard.Child = _tablesContent;
 
-            RightStatusPanel.Visibility = Visibility.Visible;
-            RightPanelColumn.Width = new GridLength(290);
+            LoadTables();
 
             PageTitleText.Text = "Masalar";
             PageDescriptionText.Text = "Salon ve masa durumlarını yönetin";
