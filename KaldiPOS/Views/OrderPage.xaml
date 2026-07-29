@@ -203,7 +203,13 @@
                                                         Background="{TemplateBinding Background}"
                                                         BorderBrush="{TemplateBinding BorderBrush}"
                                                         BorderThickness="{TemplateBinding BorderThickness}"
-                                                        CornerRadius="10">
+                                                        CornerRadius="10"
+                                                        RenderTransformOrigin="0.5,0.5">
+                                                    <Border.RenderTransform>
+                                                        <ScaleTransform x:Name="CardScale"
+                                                                        ScaleX="1"
+                                                                        ScaleY="1"/>
+                                                    </Border.RenderTransform>
                                                     <Grid>
                                                         <Grid.RowDefinitions>
                                                             <RowDefinition Height="94"/>
@@ -248,7 +254,16 @@
                                                         <Setter TargetName="Card" Property="Background" Value="#2B261E"/>
                                                     </Trigger>
                                                     <Trigger Property="IsPressed" Value="True">
-                                                        <Setter TargetName="Card" Property="Opacity" Value="0.78"/>
+                                                        <Setter TargetName="Card" Property="Opacity" Value="0.88"/>
+                                                        <Setter TargetName="Card" Property="Background" Value="#3A3022"/>
+                                                        <Setter TargetName="Card" Property="BorderBrush" Value="#E2B85F"/>
+                                                        <Setter TargetName="Card"
+                                                                Property="RenderTransform">
+                                                            <Setter.Value>
+                                                                <ScaleTransform ScaleX="0.96"
+                                                                ScaleY="0.96"/>
+                                                            </Setter.Value>
+                                                        </Setter>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -307,7 +322,8 @@
                             Click="ClearOrderButton_Click"/>
                 </Grid>
 
-                <ListBox Grid.Row="1"
+                <ListBox x:Name="OrderListBox"
+                         Grid.Row="1"
                          Margin="0,8,0,10"
                          ItemsSource="{Binding OrderItems}"
                          Background="Transparent"

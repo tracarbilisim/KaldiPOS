@@ -7,11 +7,22 @@ namespace KaldiPOS.Data;
 
 public static class Database
 {
-    private const string ConnectionString = "Data Source=KaldiPOS.db";
+    private static readonly string DatabaseFolder =
+    Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+        "KaldiPOS");
+
+    private static readonly string DatabasePath =
+        Path.Combine(DatabaseFolder, "KaldiPOS.db");
+
+    private static readonly string ConnectionString =
+        $"Data Source={DatabasePath}";
     private const string MenuVersionKey = "KaldiMenuVersion";
 
     public static void Initialize()
     {
+        Directory.CreateDirectory(DatabaseFolder);
+
         using var connection = new SqliteConnection(ConnectionString);
         connection.Open();
 

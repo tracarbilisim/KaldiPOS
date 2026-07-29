@@ -138,6 +138,7 @@ namespace KaldiPOS.Views
             }
 
             UpdateTotals();
+            ScrollOrderToLastItem();
         }
 
         private void IncreaseButton_Click(object sender, RoutedEventArgs e)
@@ -146,6 +147,7 @@ namespace KaldiPOS.Views
             {
                 item.Quantity++;
                 UpdateTotals();
+                ScrollOrderToLastItem();
             }
         }
 
@@ -184,11 +186,10 @@ namespace KaldiPOS.Views
         {
             if (OrderItems.Count == 0)
             {
-                MessageBox.Show(
-                    "Gönderilecek ürün bulunmuyor.",
-                    "KaldiPOS",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Boş Adisyon",
+                    "Gönderilecek ürün bulunmuyor.");
                 return;
             }
 
@@ -200,11 +201,9 @@ namespace KaldiPOS.Views
                     item.Quantity,
                     item.Price)));
 
-            MessageBox.Show(
-                "Sipariş başarıyla kaydedildi.",
-                "KaldiPOS",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            KaldiToastWindow.ShowSuccess(
+                Window.GetWindow(this),
+                "Sipariş başarıyla kaydedildi.");
 
             BackRequested?.Invoke(this, EventArgs.Empty);
         }
@@ -213,11 +212,10 @@ namespace KaldiPOS.Views
         {
             if (OrderItems.Count == 0)
             {
-                MessageBox.Show(
-                    "Ödeme alınacak adisyon bulunmuyor.",
-                    "KaldiPOS",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Boş Adisyon",
+                    "Ödeme alınacak adisyon bulunmuyor.");
                 return;
             }
 
@@ -317,12 +315,10 @@ namespace KaldiPOS.Views
                 return;
             }
 
-            MessageBox.Show(
+            KaldiToastWindow.ShowSuccess(
+                Window.GetWindow(this),
                 "Seçilen ürünlerin ödemesi alındı. " +
-                "Masa kalan ürünlerle açık tutuluyor.",
-                "KaldiPOS",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                "Masa kalan ürünlerle açık tutuluyor.");
         }
 
         private void RemovePaidProducts(
@@ -341,6 +337,18 @@ namespace KaldiPOS.Views
                 else
                     orderItem.Quantity -= paidItem.Quantity;
             }
+        }
+
+        private void ScrollOrderToLastItem()
+        {
+            if (OrderItems.Count == 0)
+                return;
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                OrderListBox.UpdateLayout();
+                OrderListBox.ScrollIntoView(OrderItems[^1]);
+            }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
         private void BackButton_Click(object sender, RoutedEventArgs e)
