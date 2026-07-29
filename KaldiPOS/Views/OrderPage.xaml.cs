@@ -248,10 +248,10 @@ namespace KaldiPOS.Views
                     item.Quantity,
                     item.Note)));
 
-            PreparationTicketService.ShowPreview(
-                 Window.GetWindow(this),
-                    _tableName,
-                    preparationItems);
+            //PreparationTicketService.ShowPreview(
+                 //Window.GetWindow(this),
+                    //_tableName,
+                    //preparationItems);
 
             foreach (OrderItem item in OrderItems)
                 item.MarkAsSent();

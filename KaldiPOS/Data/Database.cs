@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS Categories
 (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     Name TEXT NOT NULL UNIQUE,
-    SortOrder INTEGER NOT NULL DEFAULT 0
+    SortOrder INTEGER NOT NULL DEFAULT 0,
     Station TEXT NOT NULL DEFAULT 'Mutfak'
 );
 
@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS Orders
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     TableId INTEGER NOT NULL,
     OpenedAt TEXT NOT NULL,
+    BusinessDate TEXT NOT NULL,
     ClosedAt TEXT,
     Status INTEGER NOT NULL DEFAULT 0,
     PaymentType TEXT,
@@ -91,6 +92,21 @@ CREATE TABLE IF NOT EXISTS OrderPayments
     FOREIGN KEY (OrderId) REFERENCES Orders(Id)
 );
 
+CREATE TABLE IF NOT EXISTS DayEndClosures
+(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    BusinessDate TEXT NOT NULL UNIQUE,
+    ClosedAt TEXT NOT NULL,
+    OrderCount INTEGER NOT NULL,
+    TotalRevenue REAL NOT NULL,
+    CashTotal REAL NOT NULL,
+    CardTotal REAL NOT NULL,
+    MixedTotal REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS IX_DayEndClosures_BusinessDate
+ON DayEndClosures(BusinessDate);
+
 CREATE INDEX IF NOT EXISTS IX_OrderPayments_OrderId
 ON OrderPayments(OrderId);
 
@@ -107,10 +123,14 @@ CREATE TABLE IF NOT EXISTS AppMetadata
         EnsureColumn(connection, "Products", "Description", "TEXT");
         EnsureColumn(connection, "Products", "ExternalId", "TEXT");
         EnsureColumn(connection, "Products", "SortOrder", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "Orders", "BusinessDate", "TEXT");
         EnsureColumn(connection, "Orders", "PaymentType", "TEXT");
         EnsureColumn(connection, "Orders", "TotalAmount", "REAL NOT NULL DEFAULT 0");
         EnsureColumn(connection, "OrderItems", "SentQuantity", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, "OrderItems", "Note", "TEXT NOT NULL DEFAULT ''");
+
+        BackfillOrderBusinessDates(connection);
+        EnsureActiveBusinessDate(connection);
 
         SeedTables(connection);
         ImportKaldiMenu(connection);
@@ -488,8 +508,22 @@ LIMIT 1;";
             else
             {
                 orderCommand.CommandText = @"
-INSERT INTO Orders (TableId, OpenedAt, ClosedAt, Status)
-VALUES ($tableId, $openedAt, NULL, 0);
+INSERT INTO Orders
+(
+    TableId,
+    OpenedAt,
+    BusinessDate,
+    ClosedAt,
+    Status
+)
+VALUES
+(
+    $tableId,
+    $openedAt,
+    $businessDate,
+    NULL,
+    0
+);
 SELECT last_insert_rowid();";
 
                 orderCommand.Parameters.Clear();
@@ -497,6 +531,10 @@ SELECT last_insert_rowid();";
                 orderCommand.Parameters.AddWithValue(
                     "$openedAt",
                     DateTime.Now.ToString("O"));
+
+                orderCommand.Parameters.AddWithValue(
+    "$businessDate",
+    GetActiveBusinessDate(connection).ToString("yyyy-MM-dd"));
 
                 orderId = Convert.ToInt64(orderCommand.ExecuteScalar());
             }
@@ -1159,12 +1197,354 @@ VALUES ($name, 'Salon', 0);";
         transaction.Commit();
     }
 
+    public static DateTime GetActiveBusinessDate()
+    {
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        return GetActiveBusinessDate(connection);
+    }
+
+    private static DateTime GetActiveBusinessDate(
+        SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT Value
+FROM AppMetadata
+WHERE Key = 'ActiveBusinessDate'
+LIMIT 1;";
+
+        string? value = command.ExecuteScalar()?.ToString();
+
+        if (DateTime.TryParseExact(
+            value,
+            "yyyy-MM-dd",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out DateTime businessDate))
+        {
+            return businessDate.Date;
+        }
+
+        DateTime initialDate = DateTime.Today;
+        SetActiveBusinessDate(connection, initialDate);
+
+        return initialDate;
+    }
+
+    private static void SetActiveBusinessDate(
+        SqliteConnection connection,
+        DateTime businessDate)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO AppMetadata (Key, Value)
+VALUES ('ActiveBusinessDate', $value)
+ON CONFLICT(Key) DO UPDATE SET
+    Value = excluded.Value;";
+
+        command.Parameters.AddWithValue(
+            "$value",
+            businessDate.Date.ToString("yyyy-MM-dd"));
+
+        command.ExecuteNonQuery();
+    }
+
+    private static void EnsureActiveBusinessDate(
+        SqliteConnection connection)
+    {
+        _ = GetActiveBusinessDate(connection);
+    }
+
+    private static void BackfillOrderBusinessDates(
+        SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+UPDATE Orders
+SET BusinessDate = substr(OpenedAt, 1, 10)
+WHERE BusinessDate IS NULL
+   OR trim(BusinessDate) = '';";
+
+        command.ExecuteNonQuery();
+    }
+
+    public static List<SalesReportItem> GetClosedOrders(DateTime date)
+    {
+        var results = new List<SalesReportItem>();
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT
+    o.Id,
+    t.Name,
+    o.ClosedAt,
+    COALESCE(o.PaymentType, 'Belirtilmedi'),
+    o.TotalAmount
+FROM Orders o
+INNER JOIN Tables t ON t.Id = o.TableId
+WHERE o.Status = 1
+  AND o.ClosedAt IS NOT NULL
+  AND o.BusinessDate = $businessDate
+ORDER BY o.ClosedAt DESC;";
+
+        command.Parameters.AddWithValue(
+            "$businessDate",
+            date.Date.ToString("yyyy-MM-dd"));
+
+        using var reader = command.ExecuteReader();
+
+        while (reader.Read())
+        {
+            DateTime closedAt = DateTime.Parse(
+                reader.GetString(2),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind);
+
+            results.Add(new SalesReportItem(
+                reader.GetInt64(0),
+                reader.GetString(1),
+                closedAt,
+                reader.GetString(3),
+                Convert.ToDecimal(
+                    reader.GetDouble(4),
+                    CultureInfo.InvariantCulture)));
+        }
+
+        return results;
+    }
+
+    public static SalesReportSummary GetSalesReportSummary(DateTime date)
+    {
+        List<SalesReportItem> orders = GetClosedOrders(date);
+
+        decimal cashTotal = orders
+            .Where(order => order.PaymentType == "Nakit")
+            .Sum(order => order.TotalAmount);
+
+        decimal cardTotal = orders
+            .Where(order => order.PaymentType == "Kart")
+            .Sum(order => order.TotalAmount);
+
+        decimal mixedTotal = orders
+            .Where(order =>
+                order.PaymentType != "Nakit" &&
+                order.PaymentType != "Kart")
+            .Sum(order => order.TotalAmount);
+
+        return new SalesReportSummary(
+            orders.Count,
+            orders.Sum(order => order.TotalAmount),
+            cashTotal,
+            cardTotal,
+            mixedTotal);
+    }
+
+    public static int GetOpenTableCount()
+    {
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT COUNT(*)
+FROM Orders
+WHERE Status = 0
+  AND ClosedAt IS NULL;";
+
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
+    public static bool IsDayEndClosed(DateTime date)
+    {
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT EXISTS
+(
+    SELECT 1
+    FROM DayEndClosures
+    WHERE BusinessDate = $businessDate
+);";
+
+        command.Parameters.AddWithValue(
+            "$businessDate",
+            date.Date.ToString("yyyy-MM-dd"));
+
+        return Convert.ToInt32(command.ExecuteScalar()) == 1;
+    }
+
+    public static void CreateDayEnd(DateTime date)
+    {
+        DateTime activeBusinessDate = GetActiveBusinessDate();
+        DateTime requestedDate = date.Date;
+
+        if (requestedDate != activeBusinessDate)
+        {
+            throw new InvalidOperationException(
+                $"Aktif iş günü {activeBusinessDate:dd.MM.yyyy}. " +
+                "Yalnızca aktif iş günü kapatılabilir.");
+        }
+
+        if (GetOpenTableCount() > 0)
+        {
+            throw new InvalidOperationException(
+                "Açık masalar kapatılmadan gün sonu alınamaz.");
+        }
+
+        SalesReportSummary summary =
+            GetSalesReportSummary(activeBusinessDate);
+
+        if (summary.OrderCount == 0)
+        {
+            throw new InvalidOperationException(
+                "Aktif iş gününde kapatılmış adisyon bulunmuyor.");
+        }
+
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var transaction = connection.BeginTransaction();
+
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = @"
+INSERT INTO DayEndClosures
+(
+    BusinessDate,
+    ClosedAt,
+    OrderCount,
+    TotalRevenue,
+    CashTotal,
+    CardTotal,
+    MixedTotal
+)
+VALUES
+(
+    $businessDate,
+    $closedAt,
+    $orderCount,
+    $totalRevenue,
+    $cashTotal,
+    $cardTotal,
+    $mixedTotal
+)
+ON CONFLICT(BusinessDate) DO UPDATE SET
+    ClosedAt = excluded.ClosedAt,
+    OrderCount = excluded.OrderCount,
+    TotalRevenue = excluded.TotalRevenue,
+    CashTotal = excluded.CashTotal,
+    CardTotal = excluded.CardTotal,
+    MixedTotal = excluded.MixedTotal;";
+
+            command.Parameters.AddWithValue(
+                "$businessDate",
+                activeBusinessDate.ToString("yyyy-MM-dd"));
+
+            command.Parameters.AddWithValue(
+                "$closedAt",
+                DateTime.Now.ToString("O"));
+
+            command.Parameters.AddWithValue(
+                "$orderCount",
+                summary.OrderCount);
+
+            command.Parameters.AddWithValue(
+                "$totalRevenue",
+                summary.TotalRevenue);
+
+            command.Parameters.AddWithValue(
+                "$cashTotal",
+                summary.CashTotal);
+
+            command.Parameters.AddWithValue(
+                "$cardTotal",
+                summary.CardTotal);
+
+            command.Parameters.AddWithValue(
+                "$mixedTotal",
+                summary.MixedTotal);
+
+            command.ExecuteNonQuery();
+        }
+
+        SetActiveBusinessDate(
+            connection,
+            activeBusinessDate.AddDays(1));
+
+        transaction.Commit();
+    }
+
+    public static List<DayEndRecord> GetDayEndClosures()
+    {
+        var results = new List<DayEndRecord>();
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT
+    Id,
+    BusinessDate,
+    ClosedAt,
+    OrderCount,
+    TotalRevenue,
+    CashTotal,
+    CardTotal,
+    MixedTotal
+FROM DayEndClosures
+ORDER BY BusinessDate DESC, Id DESC;";
+
+        using var reader = command.ExecuteReader();
+
+        while (reader.Read())
+        {
+            results.Add(new DayEndRecord(
+                reader.GetInt64(0),
+                DateTime.ParseExact(
+                    reader.GetString(1),
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture),
+                DateTime.Parse(
+                    reader.GetString(2),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind),
+                reader.GetInt32(3),
+                Convert.ToDecimal(
+                    reader.GetDouble(4),
+                    CultureInfo.InvariantCulture),
+                Convert.ToDecimal(
+                    reader.GetDouble(5),
+                    CultureInfo.InvariantCulture),
+                Convert.ToDecimal(
+                    reader.GetDouble(6),
+                    CultureInfo.InvariantCulture),
+                Convert.ToDecimal(
+                    reader.GetDouble(7),
+                    CultureInfo.InvariantCulture)));
+        }
+
+        return results;
+    }
+
     private static void EnsureColumn(
+
         SqliteConnection connection,
         string tableName,
         string columnName,
         string definition)
     {
+
         using var checkCommand = connection.CreateCommand();
         checkCommand.CommandText = $"PRAGMA table_info({tableName});";
         using var reader = checkCommand.ExecuteReader();
@@ -1179,7 +1559,9 @@ VALUES ($name, 'Salon', 0);";
         alterCommand.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};";
         alterCommand.ExecuteNonQuery();
     }
+
 }
+
 
 public sealed record ProductRecord(
     int Id,
@@ -1224,3 +1606,56 @@ public sealed record SavedOrderItem(
     decimal UnitPrice,
     int SentQuantity = 0,
     string Note = "");
+
+public sealed record SalesReportItem(
+    long OrderId,
+    string TableName,
+    DateTime ClosedAt,
+    string PaymentType,
+    decimal TotalAmount)
+{
+    public string TimeText => ClosedAt.ToString("HH:mm");
+
+    public string AmountText =>
+        TotalAmount.ToString(
+            "N2",
+            CultureInfo.GetCultureInfo("tr-TR")) + " ₺";
+}
+
+public sealed record SalesReportSummary(
+    int OrderCount,
+    decimal TotalRevenue,
+    decimal CashTotal,
+    decimal CardTotal,
+    decimal MixedTotal);
+
+public sealed record DayEndRecord(
+    long Id,
+    DateTime BusinessDate,
+    DateTime ClosedAt,
+    int OrderCount,
+    decimal TotalRevenue,
+    decimal CashTotal,
+    decimal CardTotal,
+    decimal MixedTotal)
+{
+    private static readonly CultureInfo TurkishCulture =
+        CultureInfo.GetCultureInfo("tr-TR");
+
+    public string DateText =>
+        BusinessDate.ToString("dd.MM.yyyy");
+
+    public string ClosedAtText =>
+        ClosedAt.ToString("dd.MM.yyyy HH:mm");
+
+    public string OrderCountText =>
+        $"{OrderCount} adisyon";
+
+    public string TotalRevenueText =>
+        TotalRevenue.ToString("N2", TurkishCulture) + " ₺";
+
+    public string PaymentSummaryText =>
+        $"Nakit: {CashTotal.ToString("N2", TurkishCulture)} ₺   •   " +
+        $"Kart: {CardTotal.ToString("N2", TurkishCulture)} ₺   •   " +
+        $"Karma: {MixedTotal.ToString("N2", TurkishCulture)} ₺";
+}

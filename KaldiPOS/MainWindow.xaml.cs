@@ -139,6 +139,33 @@ namespace KaldiPOS
                 return;
             }
 
+            if (pageName == "Raporlar")
+            {
+                ShowPage(
+                    new ReportsPage(),
+                    "Raporlar",
+                    "Satış ve işlem raporlarını görüntüleyin");
+                return;
+            }
+
+            if (pageName == "Gün Sonu")
+            {
+                ShowPage(
+                    new DayEndPage(),
+                    "Gün Sonu",
+                    "Günlük kasa kapanış işlemlerini yönetin");
+                return;
+            }
+
+            if (pageName == "Ayarlar")
+            {
+                ShowPage(
+                    new SettingsPage(),
+                    "Ayarlar",
+                    "KaldiPOS sistem ayarlarını yönetin");
+                return;
+            }
+
             ShowPlaceholder(pageName);
         }
 
