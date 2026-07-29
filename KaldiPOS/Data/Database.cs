@@ -143,6 +143,41 @@ ORDER BY c.SortOrder, c.Id, p.SortOrder, p.Id;";
         return products;
     }
 
+
+    public static void SetProductActive(
+        int productId,
+        bool isActive)
+    {
+        if (productId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(productId));
+
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+UPDATE Products
+SET IsActive = $isActive
+WHERE Id = $productId;";
+
+        command.Parameters.AddWithValue(
+            "$isActive",
+            isActive ? 1 : 0);
+        command.Parameters.AddWithValue(
+            "$productId",
+            productId);
+
+        int affectedRows = command.ExecuteNonQuery();
+
+        if (affectedRows == 0)
+        {
+            throw new InvalidOperationException(
+                "Ürün bulunamadı veya durumu değiştirilemedi.");
+        }
+    }
+
     public static void UpdateProduct(
         int productId,
         string name,

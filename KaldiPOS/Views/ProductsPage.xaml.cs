@@ -328,11 +328,38 @@ namespace KaldiPOS.Views
                 return;
             }
 
-            MessageBox.Show(
-                $"{product.Name} pasif yapma işlemini sıradaki adımda bağlayacağız.",
-                "KaldiPOS",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            bool confirmed =
+                KaldiMessageWindow.ShowQuestion(
+                    Window.GetWindow(this),
+                    "Ürünü Pasif Yap",
+                    $"{product.Name} pasif yapılacak.\n" +
+                    "Eski adisyonlar ve raporlar etkilenmeyecek.\n\n" +
+                    "Devam etmek istiyor musunuz?");
+
+            if (!confirmed)
+                return;
+
+            try
+            {
+                Database.SetProductActive(
+                    product.Id,
+                    false);
+
+                ReloadProducts();
+                LoadCategories();
+                ApplyFilters();
+
+                KaldiToastWindow.ShowSuccess(
+                    Window.GetWindow(this),
+                    "Ürün pasif yapıldı.");
+            }
+            catch (Exception exception)
+            {
+                KaldiMessageWindow.ShowError(
+                    Window.GetWindow(this),
+                    "İşlem Tamamlanamadı",
+                    exception.Message);
+            }
         }
     }
 
