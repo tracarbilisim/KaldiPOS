@@ -343,10 +343,21 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Border Padding="8"
-                                    Background="#211E1A"
-                                    BorderBrush="#4A3B25"
                                     BorderThickness="1"
                                     CornerRadius="8">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#211E1A"/>
+                                        <Setter Property="BorderBrush" Value="#4A3B25"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasUnsentItems}" Value="True">
+                                                <Setter Property="Background" Value="#332A1B"/>
+                                                <Setter Property="BorderBrush" Value="#E2B85F"/>
+                                                <Setter Property="BorderThickness" Value="2"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="72"/>
@@ -380,15 +391,61 @@
                                                 Click="IncreaseButton_Click"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                                        <TextBlock Text="{Binding Name}"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#FFFDF8"
-                                                   TextTrimming="CharacterEllipsis"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#FFFDF8"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <Border Grid.Column="1"
+                                                    Margin="8,0,0,0"
+                                                    Padding="7,3"
+                                                    CornerRadius="5">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="#31543B"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasUnsentItems}" Value="True">
+                                                                <Setter Property="Background" Value="#8A6420"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding StatusText}"
+                                                           FontSize="10"
+                                                           FontWeight="Bold"
+                                                           Foreground="White"/>
+                                            </Border>
+                                        </Grid>
                                         <TextBlock Text="{Binding LineTotalText}"
                                                    Margin="0,3,0,0"
                                                    FontSize="12"
                                                    Foreground="#E2B85F"/>
+                                        <Grid Margin="0,5,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding NoteDisplay}"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="11"
+                                                       FontStyle="Italic"
+                                                       Foreground="#BDB7AD"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <Button Grid.Column="1"
+                                                    Content="Not"
+                                                    Width="48"
+                                                    Height="28"
+                                                    Margin="8,0,0,0"
+                                                    Padding="0"
+                                                    Tag="{Binding}"
+                                                    Style="{StaticResource CategoryButtonStyle}"
+                                                    Click="NoteButton_Click"/>
+                                        </Grid>
                                     </StackPanel>
                                 </Grid>
                             </Border>

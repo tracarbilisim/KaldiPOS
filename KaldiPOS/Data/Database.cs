@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS Categories
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     Name TEXT NOT NULL UNIQUE,
     SortOrder INTEGER NOT NULL DEFAULT 0
+    Station TEXT NOT NULL DEFAULT 'Mutfak'
 );
 
 CREATE TABLE IF NOT EXISTS Products
@@ -74,7 +75,9 @@ CREATE TABLE IF NOT EXISTS OrderItems
     OrderId INTEGER NOT NULL,
     ProductId INTEGER NOT NULL,
     Quantity INTEGER NOT NULL,
-    UnitPrice REAL NOT NULL
+    UnitPrice REAL NOT NULL,
+    SentQuantity INTEGER NOT NULL DEFAULT 0,
+    Note TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS OrderPayments
@@ -99,12 +102,15 @@ CREATE TABLE IF NOT EXISTS AppMetadata
         command.ExecuteNonQuery();
 
         EnsureColumn(connection, "Categories", "SortOrder", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "Categories", "Station", "TEXT NOT NULL DEFAULT 'Mutfak'");
         EnsureColumn(connection, "Products", "ImagePath", "TEXT");
         EnsureColumn(connection, "Products", "Description", "TEXT");
         EnsureColumn(connection, "Products", "ExternalId", "TEXT");
         EnsureColumn(connection, "Products", "SortOrder", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, "Orders", "PaymentType", "TEXT");
         EnsureColumn(connection, "Orders", "TotalAmount", "REAL NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "OrderItems", "SentQuantity", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "OrderItems", "Note", "TEXT NOT NULL DEFAULT ''");
 
         SeedTables(connection);
         ImportKaldiMenu(connection);
@@ -124,6 +130,28 @@ CREATE TABLE IF NOT EXISTS AppMetadata
             categories.Add(reader.GetString(0));
 
         return categories;
+    }
+
+    public static string GetCategoryStation(string categoryName)
+    {
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+        SELECT Station
+        FROM Categories
+        WHERE Name = @Name
+        LIMIT 1;";
+
+        command.Parameters.AddWithValue("@Name", categoryName);
+
+        object? result = command.ExecuteScalar();
+
+        if (result is null || result == DBNull.Value)
+            return "Mutfak";
+
+        return result.ToString() ?? "Mutfak";
     }
 
     public static List<ProductRecord> GetProducts()
@@ -387,7 +415,7 @@ ORDER BY Id;";
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT oi.ProductId, p.Name, oi.Quantity, oi.UnitPrice
+SELECT oi.ProductId, p.Name, oi.Quantity, oi.UnitPrice, oi.SentQuantity, oi.Note
 FROM Orders o
 INNER JOIN Tables t ON t.Id = o.TableId
 INNER JOIN OrderItems oi ON oi.OrderId = o.Id
@@ -407,7 +435,9 @@ ORDER BY oi.Id;";
                 reader.GetInt32(0),
                 reader.GetString(1),
                 reader.GetInt32(2),
-                Convert.ToDecimal(reader.GetDouble(3), CultureInfo.InvariantCulture)));
+                Convert.ToDecimal(reader.GetDouble(3), CultureInfo.InvariantCulture),
+                reader.GetInt32(4),
+                reader.IsDBNull(5) ? string.Empty : reader.GetString(5)));
         }
 
         return items;
@@ -487,14 +517,18 @@ SELECT last_insert_rowid();";
             itemCommand.Transaction = transaction;
             itemCommand.CommandText = @"
 INSERT INTO OrderItems
-(OrderId, ProductId, Quantity, UnitPrice)
+(OrderId, ProductId, Quantity, UnitPrice, SentQuantity, Note)
 VALUES
-($orderId, $productId, $quantity, $unitPrice);";
+($orderId, $productId, $quantity, $unitPrice, $sentQuantity, $note);";
 
             itemCommand.Parameters.AddWithValue("$orderId", orderId);
             itemCommand.Parameters.AddWithValue("$productId", item.ProductId);
             itemCommand.Parameters.AddWithValue("$quantity", item.Quantity);
             itemCommand.Parameters.AddWithValue("$unitPrice", item.UnitPrice);
+            itemCommand.Parameters.AddWithValue(
+                "$sentQuantity",
+                Math.Min(item.SentQuantity, item.Quantity));
+            itemCommand.Parameters.AddWithValue("$note", item.Note ?? string.Empty);
             itemCommand.ExecuteNonQuery();
         }
 
@@ -675,7 +709,9 @@ VALUES
                 group.Key,
                 group.First().Name,
                 group.Sum(item => item.Quantity),
-                group.First().UnitPrice))
+                group.First().UnitPrice,
+                group.Sum(item => item.SentQuantity),
+                group.Select(item => item.Note).FirstOrDefault(note => !string.IsNullOrWhiteSpace(note)) ?? string.Empty))
             .ToList();
 
         if (selections.Count == 0)
@@ -733,12 +769,13 @@ LIMIT 1;";
             long orderItemId;
             int currentQuantity;
             decimal currentUnitPrice;
+            int currentSentQuantity;
 
             using (var itemCommand = connection.CreateCommand())
             {
                 itemCommand.Transaction = transaction;
                 itemCommand.CommandText = @"
-SELECT Id, Quantity, UnitPrice
+SELECT Id, Quantity, UnitPrice, SentQuantity
 FROM OrderItems
 WHERE OrderId = $orderId
   AND ProductId = $productId
@@ -762,6 +799,7 @@ LIMIT 1;";
                 currentUnitPrice = Convert.ToDecimal(
                     reader.GetDouble(2),
                     CultureInfo.InvariantCulture);
+                currentSentQuantity = reader.GetInt32(3);
             }
 
             if (selection.Quantity > currentQuantity)
@@ -793,7 +831,8 @@ LIMIT 1;";
                 updateCommand.Transaction = transaction;
                 updateCommand.CommandText = @"
 UPDATE OrderItems
-SET Quantity = Quantity - $quantity
+SET Quantity = Quantity - $quantity,
+    SentQuantity = MAX(0, SentQuantity - $quantity)
 WHERE Id = $orderItemId;";
 
                 updateCommand.Parameters.AddWithValue(
@@ -1182,4 +1221,6 @@ public sealed record SavedOrderItem(
     int ProductId,
     string Name,
     int Quantity,
-    decimal UnitPrice);
+    decimal UnitPrice,
+    int SentQuantity = 0,
+    string Note = "");

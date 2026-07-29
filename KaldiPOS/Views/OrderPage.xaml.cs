@@ -1,4 +1,5 @@
 ﻿using KaldiPOS.Data;
+using KaldiPOS.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -54,7 +55,9 @@ namespace KaldiPOS.Views
                     savedItem.Name,
                     savedItem.UnitPrice)
                 {
-                    Quantity = savedItem.Quantity
+                    Quantity = savedItem.Quantity,
+                    SentQuantity = savedItem.SentQuantity,
+                    Note = savedItem.Note
                 });
             }
 
@@ -164,6 +167,22 @@ namespace KaldiPOS.Views
             UpdateTotals();
         }
 
+        private void NoteButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button button || button.Tag is not OrderItem item)
+                return;
+
+            var noteWindow = new OrderNoteWindow(item.Name, item.Note)
+            {
+                Owner = Window.GetWindow(this)
+            };
+
+            if (noteWindow.ShowDialog() != true)
+                return;
+
+            item.Note = noteWindow.NoteText;
+        }
+
         private void ClearOrderButton_Click(object sender, RoutedEventArgs e)
         {
             if (OrderItems.Count == 0)
@@ -193,17 +212,53 @@ namespace KaldiPOS.Views
                 return;
             }
 
+            int newItemCount = OrderItems.Sum(item => item.UnsentQuantity);
+
+            var preparationItems = OrderItems
+    .Where(item => item.UnsentQuantity > 0)
+    .Select(item =>
+    {
+        ProductItem? product = _allProducts.FirstOrDefault(
+            product => product.Id == item.ProductId);
+
+        return new PreparationTicketItem(
+            item.Name,
+            product?.Category ?? string.Empty,
+            item.UnsentQuantity,
+            item.Note);
+    })
+    .ToList();
+
+            if (newItemCount == 0)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Yeni Sipariş Yok",
+                    "Mutfağa veya bara gönderilecek yeni ürün bulunmuyor.");
+                return;
+            }
+
             Database.SaveOpenOrder(
                 _tableName,
                 OrderItems.Select(item => new SavedOrderItem(
                     item.ProductId,
                     item.Name,
                     item.Quantity,
-                    item.Price)));
+                    item.Price,
+                    item.Quantity,
+                    item.Note)));
+
+            PreparationTicketService.ShowPreview(
+                 Window.GetWindow(this),
+                    _tableName,
+                    preparationItems);
+
+            foreach (OrderItem item in OrderItems)
+                item.MarkAsSent();
 
             KaldiToastWindow.ShowSuccess(
                 Window.GetWindow(this),
-                "Sipariş başarıyla kaydedildi.");
+                $"{newItemCount} yeni ürün başarıyla gönderildi.");
 
             BackRequested?.Invoke(this, EventArgs.Empty);
         }
@@ -246,7 +301,9 @@ namespace KaldiPOS.Views
                     item.ProductId,
                     item.Name,
                     item.Quantity,
-                    item.Price)));
+                    item.Price,
+                    item.SentQuantity,
+                    item.Note)));
 
             Database.CloseOpenOrder(
                 _tableName,
@@ -281,7 +338,9 @@ namespace KaldiPOS.Views
                     item.ProductId,
                     item.Name,
                     item.Quantity,
-                    item.Price)));
+                    item.Price,
+                    item.SentQuantity,
+                    item.Note)));
 
             var selectedItems =
                 productPaymentWindow.SelectedProducts
@@ -335,7 +394,12 @@ namespace KaldiPOS.Views
                 if (paidItem.Quantity >= orderItem.Quantity)
                     OrderItems.Remove(orderItem);
                 else
+                {
                     orderItem.Quantity -= paidItem.Quantity;
+                    orderItem.SentQuantity = Math.Max(
+                        0,
+                        orderItem.SentQuantity - paidItem.Quantity);
+                }
             }
         }
 
@@ -353,6 +417,23 @@ namespace KaldiPOS.Views
 
         private void BackButton_Click(object sender, RoutedEventArgs e)
         {
+            if (OrderItems.Count == 0)
+            {
+                Database.DeleteOpenOrder(_tableName);
+            }
+            else
+            {
+                Database.SaveOpenOrder(
+                    _tableName,
+                    OrderItems.Select(item => new SavedOrderItem(
+                        item.ProductId,
+                        item.Name,
+                        item.Quantity,
+                        item.Price,
+                        item.SentQuantity,
+                        item.Note)));
+            }
+
             BackRequested?.Invoke(this, EventArgs.Empty);
         }
 
@@ -400,6 +481,8 @@ namespace KaldiPOS.Views
     public sealed class OrderItem : INotifyPropertyChanged
     {
         private int _quantity = 1;
+        private int _sentQuantity;
+        private string _note = string.Empty;
 
         public OrderItem(int productId, string name, decimal price)
         {
@@ -422,8 +505,67 @@ namespace KaldiPOS.Views
 
                 _quantity = value;
                 OnPropertyChanged();
+                if (_sentQuantity > _quantity)
+                    _sentQuantity = _quantity;
+
                 OnPropertyChanged(nameof(LineTotalText));
+                OnPropertyChanged(nameof(SentQuantity));
+                OnPropertyChanged(nameof(UnsentQuantity));
+                OnPropertyChanged(nameof(HasUnsentItems));
+                OnPropertyChanged(nameof(StatusText));
             }
+        }
+
+
+        public int SentQuantity
+        {
+            get => _sentQuantity;
+            set
+            {
+                int normalizedValue = Math.Clamp(value, 0, Quantity);
+
+                if (_sentQuantity == normalizedValue)
+                    return;
+
+                _sentQuantity = normalizedValue;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(UnsentQuantity));
+                OnPropertyChanged(nameof(HasUnsentItems));
+                OnPropertyChanged(nameof(StatusText));
+            }
+        }
+
+
+        public string Note
+        {
+            get => _note;
+            set
+            {
+                string normalizedValue = (value ?? string.Empty).Trim();
+
+                if (_note == normalizedValue)
+                    return;
+
+                _note = normalizedValue;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(NoteDisplay));
+                OnPropertyChanged(nameof(HasNote));
+            }
+        }
+
+        public bool HasNote => !string.IsNullOrWhiteSpace(Note);
+        public string NoteDisplay => HasNote ? $"Not: {Note}" : "Ürün notu yok";
+
+        public int UnsentQuantity => Math.Max(0, Quantity - SentQuantity);
+        public bool HasUnsentItems => UnsentQuantity > 0;
+
+        public string StatusText => HasUnsentItems
+            ? $"YENİ: {UnsentQuantity} ADET"
+            : "GÖNDERİLDİ";
+
+        public void MarkAsSent()
+        {
+            SentQuantity = Quantity;
         }
 
         public string LineTotalText =>
