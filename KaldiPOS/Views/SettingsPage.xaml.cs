@@ -1,14 +1,17 @@
-﻿using System;
+﻿using KaldiPOS.Data;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace KaldiPOS.Views
 {
     public partial class SettingsPage : Page
     {
+        private UserRecord? _selectedUser;
         private static readonly string SettingsDirectory =
             Path.Combine(
                 Environment.GetFolderPath(
@@ -22,6 +25,8 @@ namespace KaldiPOS.Views
         {
             InitializeComponent();
             LoadSettings();
+            ReloadUsers();
+            ResetUserForm();
             ShowPanel("Business");
         }
 
@@ -37,6 +42,7 @@ namespace KaldiPOS.Views
         {
             BusinessPanel.Visibility = Visibility.Collapsed;
             PrintersPanel.Visibility = Visibility.Collapsed;
+            UsersPanel.Visibility = Visibility.Collapsed;
             BackupPanel.Visibility = Visibility.Collapsed;
             AboutPanel.Visibility = Visibility.Collapsed;
 
@@ -44,6 +50,11 @@ namespace KaldiPOS.Views
             {
                 case "Printers":
                     PrintersPanel.Visibility = Visibility.Visible;
+                    break;
+
+                case "Users":
+                    ReloadUsers();
+                    UsersPanel.Visibility = Visibility.Visible;
                     break;
 
                 case "Backup":
@@ -58,6 +69,182 @@ namespace KaldiPOS.Views
                     BusinessPanel.Visibility = Visibility.Visible;
                     break;
             }
+        }
+
+        private void ReloadUsers()
+        {
+            try
+            {
+                UsersDataGrid.ItemsSource = Database.GetUsers();
+            }
+            catch (Exception exception)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Kullanıcılar",
+                    exception.Message);
+            }
+        }
+
+        private void NewUserButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            ResetUserForm();
+        }
+
+        private void ResetUserForm()
+        {
+            _selectedUser = null;
+            UsersDataGrid.SelectedItem = null;
+            UserFullNameTextBox.Text = string.Empty;
+            UserPinPasswordBox.Password = string.Empty;
+            UserRoleComboBox.SelectedIndex = 2;
+            UserFormTitleText.Text = "Yeni Kullanıcı";
+            SaveUserButton.Content = "Kullanıcıyı Kaydet";
+            ToggleUserStatusButton.Visibility = Visibility.Collapsed;
+            UserFullNameTextBox.Focus();
+        }
+
+        private void UsersDataGrid_SelectionChanged(
+            object sender,
+            SelectionChangedEventArgs e)
+        {
+            if (UsersDataGrid.SelectedItem is not UserRecord user)
+                return;
+
+            _selectedUser = user;
+            UserFullNameTextBox.Text = user.FullName;
+            UserPinPasswordBox.Password = string.Empty;
+            SelectUserRole(user.Role);
+            UserFormTitleText.Text = "Kullanıcıyı Düzenle";
+            SaveUserButton.Content = "Değişiklikleri Kaydet";
+            ToggleUserStatusButton.Visibility = Visibility.Visible;
+            UpdateUserStatusButton(user);
+        }
+
+        private void SelectUserRole(string role)
+        {
+            foreach (object item in UserRoleComboBox.Items)
+            {
+                if (item is ComboBoxItem comboBoxItem &&
+                    string.Equals(
+                        comboBoxItem.Content?.ToString(),
+                        role,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    UserRoleComboBox.SelectedItem = comboBoxItem;
+                    return;
+                }
+            }
+
+            UserRoleComboBox.SelectedIndex = 2;
+        }
+
+        private string GetSelectedRole()
+        {
+            if (UserRoleComboBox.SelectedItem is ComboBoxItem item)
+                return item.Content?.ToString() ?? string.Empty;
+
+            return string.Empty;
+        }
+
+        private void SaveUserButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            try
+            {
+                string fullName = UserFullNameTextBox.Text.Trim();
+                string pin = UserPinPasswordBox.Password.Trim();
+                string role = GetSelectedRole();
+
+                if (_selectedUser is null)
+                {
+                    Database.AddUser(fullName, pin, role);
+
+                    KaldiToastWindow.ShowSuccess(
+                        Window.GetWindow(this),
+                        "Kullanıcı oluşturuldu.");
+                }
+                else
+                {
+                    Database.UpdateUser(
+                        _selectedUser.Id,
+                        fullName,
+                        role,
+                        string.IsNullOrWhiteSpace(pin) ? null : pin);
+
+                    KaldiToastWindow.ShowSuccess(
+                        Window.GetWindow(this),
+                        "Kullanıcı bilgileri güncellendi.");
+                }
+
+                ReloadUsers();
+                ResetUserForm();
+            }
+            catch (Exception exception)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Kullanıcı Kaydedilemedi",
+                    exception.Message);
+            }
+        }
+
+        private void ToggleUserStatusButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            if (_selectedUser is null)
+                return;
+
+            try
+            {
+                bool newStatus = !_selectedUser.IsActive;
+
+                Database.SetUserActive(
+                    _selectedUser.Id,
+                    newStatus);
+
+                KaldiToastWindow.ShowSuccess(
+                    Window.GetWindow(this),
+                    newStatus
+                        ? "Kullanıcı aktifleştirildi."
+                        : "Kullanıcı pasifleştirildi.");
+
+                ReloadUsers();
+                ResetUserForm();
+            }
+            catch (Exception exception)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Kullanıcı Durumu",
+                    exception.Message);
+            }
+        }
+
+        private void UpdateUserStatusButton(UserRecord user)
+        {
+            ToggleUserStatusButton.Content =
+                user.IsActive
+                    ? "Kullanıcıyı Pasifleştir"
+                    : "Kullanıcıyı Aktifleştir";
+
+            ToggleUserStatusButton.Background =
+                user.IsActive
+                    ? new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(125, 60, 60))
+                    : new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(47, 143, 87));
+        }
+
+        private void UserPinPasswordBox_PreviewTextInput(
+            object sender,
+            TextCompositionEventArgs e)
+        {
+            e.Handled = e.Text.Any(character => !char.IsDigit(character));
         }
 
         private void LoadSettings()

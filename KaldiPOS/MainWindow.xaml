@@ -203,11 +203,11 @@
 
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="Aktif Kullanıcı" FontSize="10" Foreground="#9D978D" />
-                            <TextBlock Text="Yönetici"
-                                       Margin="0,2,0,0"
-                                       FontSize="14"
+                            <TextBlock x:Name="ActiveUserText"
+                                       Text="-"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
-                                       Foreground="#FFFDF8" />
+                                       Foreground="White"/>
                         </StackPanel>
                     </StackPanel>
                 </Grid>

@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using KaldiPOS.Services;
+using KaldiPOS.Data;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -54,11 +56,34 @@ namespace KaldiPOS.Views
                 return;
             }
 
-            MainWindow mainWindow = new();
-            mainWindow.Show();
+            try
+            {
+                UserRecord? user = Database.VerifyUserPin(_enteredPin);
 
-            Application.Current.MainWindow = mainWindow;
-            Close();
+                if (user is null)
+                {
+                    _enteredPin = string.Empty;
+                    StatusText.Text = "Hatalı PIN veya pasif kullanıcı.";
+                    UpdatePinIndicators();
+                    Focus();
+                    return;
+                }
+
+                UserSession.Start(user);
+
+                MainWindow mainWindow = new();
+                mainWindow.Show();
+
+                Application.Current.MainWindow = mainWindow;
+                Close();
+            }
+            catch
+            {
+                _enteredPin = string.Empty;
+                StatusText.Text = "Giriş işlemi gerçekleştirilemedi.";
+                UpdatePinIndicators();
+                Focus();
+            }
         }
 
         private void UpdatePinIndicators()

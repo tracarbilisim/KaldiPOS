@@ -2,6 +2,8 @@
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace KaldiPOS.Data;
 
@@ -110,6 +112,20 @@ ON DayEndClosures(BusinessDate);
 CREATE INDEX IF NOT EXISTS IX_OrderPayments_OrderId
 ON OrderPayments(OrderId);
 
+
+CREATE TABLE IF NOT EXISTS Users
+(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    FullName TEXT NOT NULL,
+    PinHash TEXT NOT NULL UNIQUE,
+    Role TEXT NOT NULL,
+    IsActive INTEGER NOT NULL DEFAULT 1,
+    CreatedAt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS IX_Users_IsActive
+ON Users(IsActive);
+
 CREATE TABLE IF NOT EXISTS AppMetadata
 (
     Key TEXT PRIMARY KEY,
@@ -131,6 +147,7 @@ CREATE TABLE IF NOT EXISTS AppMetadata
 
         BackfillOrderBusinessDates(connection);
         EnsureActiveBusinessDate(connection);
+        SeedDefaultAdmin(connection);
 
         SeedTables(connection);
         ImportKaldiMenu(connection);
@@ -1270,6 +1287,146 @@ WHERE BusinessDate IS NULL
         command.ExecuteNonQuery();
     }
 
+    public static OrderDetailData? GetOrderDetail(long orderId)
+    {
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var orderCommand =
+            connection.CreateCommand();
+
+        orderCommand.CommandText = @"
+SELECT
+    o.Id,
+    t.Name,
+    o.OpenedAt,
+    o.ClosedAt,
+    COALESCE(o.PaymentType, 'Belirtilmedi'),
+    o.TotalAmount
+FROM Orders o
+INNER JOIN Tables t ON t.Id = o.TableId
+WHERE o.Id = $orderId
+LIMIT 1;";
+
+        orderCommand.Parameters.AddWithValue(
+            "$orderId",
+            orderId);
+
+        using var reader =
+            orderCommand.ExecuteReader();
+
+        if (!reader.Read())
+            return null;
+
+        long id = reader.GetInt64(0);
+        string tableName = reader.GetString(1);
+
+        DateTime openedAt = DateTime.Parse(
+            reader.GetString(2),
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind);
+
+        DateTime? closedAt = reader.IsDBNull(3)
+            ? null
+            : DateTime.Parse(
+                reader.GetString(3),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind);
+
+        string paymentType =
+            reader.GetString(4);
+
+        decimal totalAmount = Convert.ToDecimal(
+            reader.GetDouble(5),
+            CultureInfo.InvariantCulture);
+
+        reader.Close();
+
+        var items =
+            new List<OrderDetailItem>();
+
+        using var itemCommand =
+            connection.CreateCommand();
+
+        itemCommand.CommandText = @"
+SELECT
+    p.Name,
+    oi.Quantity,
+    oi.UnitPrice,
+    COALESCE(oi.Note, '')
+FROM OrderItems oi
+INNER JOIN Products p ON p.Id = oi.ProductId
+WHERE oi.OrderId = $orderId
+ORDER BY oi.Id;";
+
+        itemCommand.Parameters.AddWithValue(
+            "$orderId",
+            orderId);
+
+        using var itemReader =
+            itemCommand.ExecuteReader();
+
+        while (itemReader.Read())
+        {
+            items.Add(new OrderDetailItem(
+                itemReader.GetString(0),
+                itemReader.GetInt32(1),
+                Convert.ToDecimal(
+                    itemReader.GetDouble(2),
+                    CultureInfo.InvariantCulture),
+                itemReader.GetString(3)));
+        }
+
+        return new OrderDetailData(
+            id,
+            tableName,
+            openedAt,
+            closedAt,
+            paymentType,
+            totalAmount,
+            items);
+    }
+
+    public sealed record OrderDetailItem(
+    string ProductName,
+    int Quantity,
+    decimal UnitPrice,
+    string Note)
+    {
+        private static readonly CultureInfo TurkishCulture =
+            CultureInfo.GetCultureInfo("tr-TR");
+
+        public decimal LineTotal =>
+            Quantity * UnitPrice;
+
+        public string QuantityText =>
+            Quantity + " x";
+
+        public string UnitPriceText =>
+            UnitPrice.ToString("N2", TurkishCulture) + " ₺";
+
+        public string LineTotalText =>
+            LineTotal.ToString("N2", TurkishCulture) + " ₺";
+    }
+
+    public sealed record OrderDetailData(
+        long OrderId,
+        string TableName,
+        DateTime OpenedAt,
+        DateTime? ClosedAt,
+        string PaymentType,
+        decimal TotalAmount,
+        List<OrderDetailItem> Items)
+    {
+        private static readonly CultureInfo TurkishCulture =
+            CultureInfo.GetCultureInfo("tr-TR");
+
+        public string TotalAmountText =>
+            TotalAmount.ToString("N2", TurkishCulture) + " ₺";
+    }
+
     public static List<SalesReportItem> GetClosedOrders(DateTime date)
     {
         var results = new List<SalesReportItem>();
@@ -1537,6 +1694,313 @@ ORDER BY BusinessDate DESC, Id DESC;";
         return results;
     }
 
+
+    public static List<UserRecord> GetUsers()
+    {
+        var users = new List<UserRecord>();
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT Id, FullName, Role, IsActive, CreatedAt
+FROM Users
+ORDER BY IsActive DESC, FullName COLLATE NOCASE;";
+
+        using var reader = command.ExecuteReader();
+
+        while (reader.Read())
+        {
+            users.Add(new UserRecord(
+                reader.GetInt32(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetInt32(3) == 1,
+                DateTime.Parse(
+                    reader.GetString(4),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind)));
+        }
+
+        return users;
+    }
+
+    public static UserRecord? VerifyUserPin(string pin)
+    {
+        if (string.IsNullOrWhiteSpace(pin))
+            return null;
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT Id, FullName, Role, IsActive, CreatedAt
+FROM Users
+WHERE PinHash = @PinHash
+  AND IsActive = 1
+LIMIT 1;";
+
+        command.Parameters.AddWithValue("@PinHash", HashPin(pin));
+
+        using var reader = command.ExecuteReader();
+
+        if (!reader.Read())
+            return null;
+
+        return new UserRecord(
+            reader.GetInt32(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            true,
+            DateTime.Parse(
+                reader.GetString(4),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind));
+    }
+
+    public static int AddUser(
+        string fullName,
+        string pin,
+        string role)
+    {
+        ValidateUserInput(fullName, pin, role);
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO Users
+(
+    FullName,
+    PinHash,
+    Role,
+    IsActive,
+    CreatedAt
+)
+VALUES
+(
+    @FullName,
+    @PinHash,
+    @Role,
+    1,
+    @CreatedAt
+);
+
+SELECT last_insert_rowid();";
+
+        command.Parameters.AddWithValue("@FullName", fullName.Trim());
+        command.Parameters.AddWithValue("@PinHash", HashPin(pin));
+        command.Parameters.AddWithValue("@Role", role.Trim());
+        command.Parameters.AddWithValue(
+            "@CreatedAt",
+            DateTime.Now.ToString("O", CultureInfo.InvariantCulture));
+
+        try
+        {
+            return Convert.ToInt32(command.ExecuteScalar());
+        }
+        catch (SqliteException exception) when (exception.SqliteErrorCode == 19)
+        {
+            throw new InvalidOperationException(
+                "Bu PIN başka bir kullanıcı tarafından kullanılıyor.");
+        }
+    }
+
+    public static void UpdateUser(
+        int userId,
+        string fullName,
+        string role,
+        string? newPin = null)
+    {
+        if (userId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(userId));
+
+        if (string.IsNullOrWhiteSpace(fullName))
+            throw new InvalidOperationException("Kullanıcı adı boş bırakılamaz.");
+
+        ValidateRole(role);
+
+        if (!string.IsNullOrWhiteSpace(newPin) &&
+            (newPin.Length != 4 || !newPin.All(char.IsDigit)))
+        {
+            throw new InvalidOperationException("PIN yalnızca 4 rakamdan oluşmalıdır.");
+        }
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+
+        if (string.IsNullOrWhiteSpace(newPin))
+        {
+            command.CommandText = @"
+UPDATE Users
+SET FullName = @FullName,
+    Role = @Role
+WHERE Id = @Id;";
+        }
+        else
+        {
+            command.CommandText = @"
+UPDATE Users
+SET FullName = @FullName,
+    Role = @Role,
+    PinHash = @PinHash
+WHERE Id = @Id;";
+
+            command.Parameters.AddWithValue("@PinHash", HashPin(newPin));
+        }
+
+        command.Parameters.AddWithValue("@Id", userId);
+        command.Parameters.AddWithValue("@FullName", fullName.Trim());
+        command.Parameters.AddWithValue("@Role", role.Trim());
+
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException exception) when (exception.SqliteErrorCode == 19)
+        {
+            throw new InvalidOperationException(
+                "Bu PIN başka bir kullanıcı tarafından kullanılıyor.");
+        }
+    }
+
+    public static void SetUserActive(
+        int userId,
+        bool isActive)
+    {
+        if (userId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(userId));
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        if (!isActive)
+        {
+            using var checkCommand = connection.CreateCommand();
+            checkCommand.CommandText = @"
+SELECT Role, IsActive
+FROM Users
+WHERE Id = @Id
+LIMIT 1;";
+
+            checkCommand.Parameters.AddWithValue("@Id", userId);
+
+            using var reader = checkCommand.ExecuteReader();
+
+            if (!reader.Read())
+                throw new InvalidOperationException("Kullanıcı bulunamadı.");
+
+            string role = reader.GetString(0);
+            bool currentlyActive = reader.GetInt32(1) == 1;
+            reader.Close();
+
+            if (currentlyActive &&
+                string.Equals(role, "Yönetici", StringComparison.OrdinalIgnoreCase))
+            {
+                using var adminCountCommand = connection.CreateCommand();
+                adminCountCommand.CommandText = @"
+SELECT COUNT(*)
+FROM Users
+WHERE Role = 'Yönetici'
+  AND IsActive = 1;";
+
+                long activeAdminCount =
+                    Convert.ToInt64(adminCountCommand.ExecuteScalar());
+
+                if (activeAdminCount <= 1)
+                {
+                    throw new InvalidOperationException(
+                        "Sistemde en az bir aktif yönetici bulunmalıdır.");
+                }
+            }
+        }
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+UPDATE Users
+SET IsActive = @IsActive
+WHERE Id = @Id;";
+
+        command.Parameters.AddWithValue("@Id", userId);
+        command.Parameters.AddWithValue("@IsActive", isActive ? 1 : 0);
+        command.ExecuteNonQuery();
+    }
+
+    private static void SeedDefaultAdmin(SqliteConnection connection)
+    {
+        using var countCommand = connection.CreateCommand();
+        countCommand.CommandText = "SELECT COUNT(*) FROM Users;";
+
+        long userCount = Convert.ToInt64(countCommand.ExecuteScalar());
+
+        if (userCount > 0)
+            return;
+
+        using var insertCommand = connection.CreateCommand();
+        insertCommand.CommandText = @"
+INSERT INTO Users
+(
+    FullName,
+    PinHash,
+    Role,
+    IsActive,
+    CreatedAt
+)
+VALUES
+(
+    'Yönetici',
+    @PinHash,
+    'Yönetici',
+    1,
+    @CreatedAt
+);";
+
+        insertCommand.Parameters.AddWithValue("@PinHash", HashPin("1234"));
+        insertCommand.Parameters.AddWithValue(
+            "@CreatedAt",
+            DateTime.Now.ToString("O", CultureInfo.InvariantCulture));
+
+        insertCommand.ExecuteNonQuery();
+    }
+
+    private static void ValidateUserInput(
+        string fullName,
+        string pin,
+        string role)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            throw new InvalidOperationException("Kullanıcı adı boş bırakılamaz.");
+
+        if (pin.Length != 4 || !pin.All(char.IsDigit))
+            throw new InvalidOperationException("PIN yalnızca 4 rakamdan oluşmalıdır.");
+
+        ValidateRole(role);
+    }
+
+    private static void ValidateRole(string role)
+    {
+        string[] validRoles =
+        {
+            "Yönetici",
+            "Kasiyer",
+            "Garson"
+        };
+
+        if (!validRoles.Contains(role))
+            throw new InvalidOperationException("Geçerli bir kullanıcı rolü seçin.");
+    }
+
+    private static string HashPin(string pin)
+    {
+        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(pin));
+        return Convert.ToHexString(hash);
+    }
+
     private static void EnsureColumn(
 
         SqliteConnection connection,
@@ -1562,6 +2026,17 @@ ORDER BY BusinessDate DESC, Id DESC;";
 
 }
 
+
+public sealed record UserRecord(
+    int Id,
+    string FullName,
+    string Role,
+    bool IsActive,
+    DateTime CreatedAt)
+{
+    public string StatusText =>
+        IsActive ? "Aktif" : "Pasif";
+}
 
 public sealed record ProductRecord(
     int Id,
@@ -1606,6 +2081,45 @@ public sealed record SavedOrderItem(
     decimal UnitPrice,
     int SentQuantity = 0,
     string Note = "");
+
+public sealed record OrderDetailItem(
+    string ProductName,
+    int Quantity,
+    decimal UnitPrice,
+    string Note)
+{
+    private static readonly CultureInfo TurkishCulture =
+        CultureInfo.GetCultureInfo("tr-TR");
+
+    public decimal LineTotal =>
+        Quantity * UnitPrice;
+
+    public string QuantityText =>
+        Quantity + " x";
+
+    public string UnitPriceText =>
+        UnitPrice.ToString("N2", TurkishCulture) + " ₺";
+
+    public string LineTotalText =>
+        LineTotal.ToString("N2", TurkishCulture) + " ₺";
+}
+
+public sealed record OrderDetailData(
+    long OrderId,
+    string TableName,
+    DateTime OpenedAt,
+    DateTime? ClosedAt,
+    string PaymentType,
+    decimal TotalAmount,
+    List<OrderDetailItem> Items)
+{
+    private static readonly CultureInfo TurkishCulture =
+        CultureInfo.GetCultureInfo("tr-TR");
+
+    public string TotalAmountText =>
+        TotalAmount.ToString("N2", TurkishCulture) + " ₺";
+}
+
 
 public sealed record SalesReportItem(
     long OrderId,

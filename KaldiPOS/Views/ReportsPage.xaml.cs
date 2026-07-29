@@ -67,5 +67,25 @@ namespace KaldiPOS.Views
                 Window.GetWindow(this),
                 "Satış raporu güncellendi.");
         }
+
+        private void OrdersListView_MouseDoubleClick(
+    object sender,
+    System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (OrdersListView.SelectedItem
+                is not SalesReportItem selectedOrder)
+            {
+                return;
+            }
+
+            var detailWindow =
+                new OrderDetailWindow(selectedOrder.OrderId)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+
+            detailWindow.ShowDialog();
+        }
+
     }
 }

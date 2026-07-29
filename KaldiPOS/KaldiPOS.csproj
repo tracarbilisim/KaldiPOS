@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Assets\Images\splash-background.png" />
     <None Remove="Assets\kaldi-logo.png" />
     <None Remove="Assets\login-background.png" />
     <None Remove="Assets\splash-background.png" />
@@ -28,6 +29,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Assets\Images\splash-background.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="Assets\kaldi-logo.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>

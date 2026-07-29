@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KaldiPOS.Services;
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -19,6 +20,11 @@ namespace KaldiPOS
         public MainWindow()
         {
             InitializeComponent();
+
+            ActiveUserText.Text =
+            UserSession.CurrentUser is null
+        ? "-"
+        : $"{UserSession.CurrentUser.FullName} • {UserSession.CurrentUser.Role}";
 
             _tablesContent = ContentCard.Child;
 

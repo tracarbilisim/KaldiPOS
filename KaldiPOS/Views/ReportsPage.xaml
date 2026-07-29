@@ -175,11 +175,12 @@
                            Margin="2,0,0,12"/>
 
                 <ListView x:Name="OrdersListView"
-                          Grid.Row="1"
-                          Background="Transparent"
-                          BorderThickness="0"
-                          Foreground="White"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+          Grid.Row="1"
+          Background="Transparent"
+          BorderThickness="0"
+          Foreground="White"
+          MouseDoubleClick="OrdersListView_MouseDoubleClick"
+          ScrollViewer.VerticalScrollBarVisibility="Auto">
 
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">

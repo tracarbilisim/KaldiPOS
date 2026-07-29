@@ -77,6 +77,11 @@
                             Style="{StaticResource SettingsMenuButton}"
                             Click="MenuButton_Click"/>
 
+                    <Button Content="👤  Kullanıcılar"
+                            Tag="Users"
+                            Style="{StaticResource SettingsMenuButton}"
+                            Click="MenuButton_Click"/>
+
                     <Button Content="💾  Yedekleme"
                             Tag="Backup"
                             Style="{StaticResource SettingsMenuButton}"
@@ -253,6 +258,197 @@
                             BorderThickness="0"
                             FontWeight="Bold"
                             Cursor="Hand"/>
+                </Grid>
+
+                <!-- KULLANICILAR -->
+                <Grid x:Name="UsersPanel"
+                      Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Text="Kullanıcı Yönetimi"
+                                       FontSize="24"
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+
+                            <TextBlock Text="Personel hesaplarını, PIN kodlarını ve rollerini yönetin"
+                                       Margin="0,5,0,0"
+                                       Foreground="#AFA89D"/>
+                        </StackPanel>
+
+                        <Button Grid.Column="1"
+                                Content="+ Yeni Kullanıcı"
+                                Width="150"
+                                Height="42"
+                                Click="NewUserButton_Click"
+                                Background="#D4A64F"
+                                Foreground="#171512"
+                                BorderThickness="0"
+                                FontWeight="Bold"
+                                Cursor="Hand"/>
+                    </Grid>
+
+                    <Grid Grid.Row="1" Margin="0,24,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="330"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Padding="1"
+                                CornerRadius="10"
+                                Background="#765A32">
+                            <DataGrid x:Name="UsersDataGrid"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      RowHeaderWidth="0"
+                                      SelectionMode="Single"
+                                      SelectionChanged="UsersDataGrid_SelectionChanged"
+                                      Background="#211E1A"
+                                      Foreground="White"
+                                      BorderThickness="0"
+                                      RowBackground="#211E1A"
+                                      AlternatingRowBackground="#29251F"
+                                      HorizontalGridLinesBrush="#3C342A"
+                                      VerticalGridLinesBrush="#3C342A">
+                                <DataGrid.Resources>
+                                    <Style TargetType="DataGridColumnHeader">
+                                        <Setter Property="Height" Value="42"/>
+                                        <Setter Property="Padding" Value="12,0"/>
+                                        <Setter Property="Background" Value="#29251F"/>
+                                        <Setter Property="Foreground" Value="#D4A64F"/>
+                                        <Setter Property="BorderBrush" Value="#554225"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </Style>
+
+                                    <Style TargetType="DataGridCell">
+                                        <Setter Property="Padding" Value="12,10"/>
+                                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                        <Setter Property="BorderBrush" Value="#3C342A"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Style>
+
+                                    <Style TargetType="DataGridRow">
+                                        <Setter Property="MinHeight" Value="44"/>
+                                    </Style>
+                                </DataGrid.Resources>
+
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Kullanıcı"
+                                                        Binding="{Binding FullName}"
+                                                        Width="*"/>
+
+                                    <DataGridTextColumn Header="Rol"
+                                                        Binding="{Binding Role}"
+                                                        Width="120"/>
+
+                                    <DataGridTextColumn Header="Durum"
+                                                        Binding="{Binding StatusText}"
+                                                        Width="90"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+
+                        <Border Grid.Column="2"
+                                Padding="20"
+                                CornerRadius="10"
+                                Background="#29251F"
+                                BorderBrush="#765A32"
+                                BorderThickness="1">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <TextBlock x:Name="UserFormTitleText"
+                                               Text="Yeni Kullanıcı"
+                                               FontSize="19"
+                                               FontWeight="Bold"
+                                               Foreground="#D4A64F"/>
+
+                                    <TextBlock Text="Ad Soyad"
+                                               Margin="0,22,0,6"
+                                               Style="{StaticResource FieldLabel}"/>
+
+                                    <TextBox x:Name="UserFullNameTextBox"
+                                               Style="{StaticResource TextBox.Kaldi}"
+                                               MaxLength="80"/>
+
+                                    <TextBlock Text="4 Haneli PIN"
+                                               Margin="0,18,0,6"
+                                               Style="{StaticResource FieldLabel}"/>
+
+                                    <PasswordBox x:Name="UserPinPasswordBox"
+                                               Style="{StaticResource PasswordBox.Kaldi}"
+                                               MaxLength="4"
+                                               PreviewTextInput="UserPinPasswordBox_PreviewTextInput"/>
+
+                                    <TextBlock Text="Düzenlemede PIN'i değiştirmeyecekseniz boş bırakın."
+                                               Margin="0,6,0,0"
+                                               TextWrapping="Wrap"
+                                               FontSize="12"
+                                               Foreground="#918A80"/>
+
+                                    <TextBlock Text="Rol"
+                                               Margin="0,18,0,6"
+                                               Style="{StaticResource FieldLabel}"/>
+
+                                    <ComboBox x:Name="UserRoleComboBox"
+          Style="{StaticResource ComboBox.Kaldi}"
+          SelectedIndex="2">
+
+                                        <ComboBoxItem Content="Yönetici"/>
+                                        <ComboBoxItem Content="Kasiyer"/>
+                                        <ComboBoxItem Content="Garson"/>
+                                    </ComboBox>
+
+                                    <Button x:Name="SaveUserButton"
+                                            Content="Kullanıcıyı Kaydet"
+                                            Height="44"
+                                            Margin="0,24,0,0"
+                                            Click="SaveUserButton_Click"
+                                            Background="#D4A64F"
+                                            Foreground="#171512"
+                                            BorderThickness="0"
+                                            FontWeight="Bold"
+                                            Cursor="Hand"/>
+
+                                    <Button x:Name="ToggleUserStatusButton"
+                                            Content="Kullanıcıyı Pasifleştir"
+                                            Height="42"
+                                            Margin="0,10,0,0"
+                                            Visibility="Collapsed"
+                                            Click="ToggleUserStatusButton_Click"
+                                            Background="#7D3C3C"
+                                            Foreground="White"
+                                            BorderThickness="0"
+                                            FontWeight="SemiBold"
+                                            Cursor="Hand"/>
+
+                                    <Button Content="Formu Temizle"
+                                            Height="40"
+                                            Margin="0,10,0,0"
+                                            Click="NewUserButton_Click"
+                                            Background="#3A342D"
+                                            Foreground="White"
+                                            BorderBrush="#765A32"
+                                            BorderThickness="1"
+                                            FontWeight="SemiBold"
+                                            Cursor="Hand"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
                 </Grid>
 
                 <!-- YEDEKLEME -->
