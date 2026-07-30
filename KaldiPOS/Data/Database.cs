@@ -630,6 +630,662 @@ VALUES
         transaction.Commit();
     }
 
+    public static void TransferOpenOrder(
+    string sourceTableName,
+    string targetTableName)
+    {
+        if (string.IsNullOrWhiteSpace(sourceTableName) ||
+            string.IsNullOrWhiteSpace(targetTableName))
+        {
+            throw new ArgumentException("Masa adı boş olamaz.");
+        }
+
+        if (string.Equals(
+            sourceTableName,
+            targetTableName,
+            StringComparison.CurrentCultureIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Adisyon aynı masaya aktarılamaz.");
+        }
+
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var transaction =
+            connection.BeginTransaction();
+
+        long sourceTableId;
+        long targetTableId;
+
+        using (var tableCommand = connection.CreateCommand())
+        {
+            tableCommand.Transaction = transaction;
+            tableCommand.CommandText = @"
+SELECT Id
+FROM Tables
+WHERE Name = $tableName
+LIMIT 1;";
+
+            tableCommand.Parameters.AddWithValue(
+                "$tableName",
+                sourceTableName);
+
+            sourceTableId = Convert.ToInt64(
+                tableCommand.ExecuteScalar()
+                ?? throw new InvalidOperationException(
+                    "Kaynak masa bulunamadı."));
+
+            tableCommand.Parameters.Clear();
+            tableCommand.Parameters.AddWithValue(
+                "$tableName",
+                targetTableName);
+
+            targetTableId = Convert.ToInt64(
+                tableCommand.ExecuteScalar()
+                ?? throw new InvalidOperationException(
+                    "Hedef masa bulunamadı."));
+        }
+
+        long orderId;
+
+        using (var sourceOrderCommand = connection.CreateCommand())
+        {
+            sourceOrderCommand.Transaction = transaction;
+            sourceOrderCommand.CommandText = @"
+SELECT Id
+FROM Orders
+WHERE TableId = $tableId
+  AND Status = 0
+  AND ClosedAt IS NULL
+LIMIT 1;";
+
+            sourceOrderCommand.Parameters.AddWithValue(
+                "$tableId",
+                sourceTableId);
+
+            orderId = Convert.ToInt64(
+                sourceOrderCommand.ExecuteScalar()
+                ?? throw new InvalidOperationException(
+                    "Kaynak masada açık adisyon bulunamadı."));
+        }
+
+        using (var targetOrderCommand = connection.CreateCommand())
+        {
+            targetOrderCommand.Transaction = transaction;
+            targetOrderCommand.CommandText = @"
+SELECT COUNT(*)
+FROM Orders
+WHERE TableId = $tableId
+  AND Status = 0
+  AND ClosedAt IS NULL;";
+
+            targetOrderCommand.Parameters.AddWithValue(
+                "$tableId",
+                targetTableId);
+
+            long targetOrderCount = Convert.ToInt64(
+                targetOrderCommand.ExecuteScalar() ?? 0L);
+
+            if (targetOrderCount > 0)
+            {
+                throw new InvalidOperationException(
+                    "Hedef masada açık bir adisyon bulunuyor.");
+            }
+        }
+
+        using (var transferCommand = connection.CreateCommand())
+        {
+            transferCommand.Transaction = transaction;
+            transferCommand.CommandText = @"
+UPDATE Orders
+SET TableId = $targetTableId
+WHERE Id = $orderId;";
+
+            transferCommand.Parameters.AddWithValue(
+                "$targetTableId",
+                targetTableId);
+
+            transferCommand.Parameters.AddWithValue(
+                "$orderId",
+                orderId);
+
+            transferCommand.ExecuteNonQuery();
+        }
+
+        using (var statusCommand = connection.CreateCommand())
+        {
+            statusCommand.Transaction = transaction;
+            statusCommand.CommandText = @"
+UPDATE Tables
+SET Status =
+    CASE
+        WHEN Id = $sourceTableId THEN 0
+        WHEN Id = $targetTableId THEN 1
+        ELSE Status
+    END
+WHERE Id IN ($sourceTableId, $targetTableId);";
+
+            statusCommand.Parameters.AddWithValue(
+                "$sourceTableId",
+                sourceTableId);
+
+            statusCommand.Parameters.AddWithValue(
+                "$targetTableId",
+                targetTableId);
+
+            statusCommand.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    public static void TransferProducts(
+    string sourceTableName,
+    string targetTableName,
+    IEnumerable<SavedOrderItem> transferredItems)
+    {
+        if (string.IsNullOrWhiteSpace(sourceTableName) ||
+            string.IsNullOrWhiteSpace(targetTableName))
+        {
+            throw new ArgumentException("Masa adı boş olamaz.");
+        }
+
+        if (string.Equals(
+                sourceTableName,
+                targetTableName,
+                StringComparison.CurrentCultureIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Ürünler aynı masaya aktarılamaz.");
+        }
+
+        List<SavedOrderItem> items = transferredItems
+            .Where(item => item.Quantity > 0)
+            .ToList();
+
+        if (items.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Aktarılacak ürün bulunamadı.");
+        }
+
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var transaction =
+            connection.BeginTransaction();
+
+        long sourceTableId;
+        long targetTableId;
+
+        using (var tableCommand = connection.CreateCommand())
+        {
+            tableCommand.Transaction = transaction;
+            tableCommand.CommandText = @"
+SELECT Id
+FROM Tables
+WHERE Name = $tableName
+LIMIT 1;";
+
+            tableCommand.Parameters.AddWithValue(
+                "$tableName",
+                sourceTableName);
+
+            sourceTableId = Convert.ToInt64(
+                tableCommand.ExecuteScalar()
+                ?? throw new InvalidOperationException(
+                    "Kaynak masa bulunamadı."));
+
+            tableCommand.Parameters.Clear();
+
+            tableCommand.Parameters.AddWithValue(
+                "$tableName",
+                targetTableName);
+
+            targetTableId = Convert.ToInt64(
+                tableCommand.ExecuteScalar()
+                ?? throw new InvalidOperationException(
+                    "Hedef masa bulunamadı."));
+        }
+
+        long sourceOrderId;
+
+        using (var sourceOrderCommand =
+               connection.CreateCommand())
+        {
+            sourceOrderCommand.Transaction = transaction;
+            sourceOrderCommand.CommandText = @"
+SELECT Id
+FROM Orders
+WHERE TableId = $tableId
+  AND Status = 0
+  AND ClosedAt IS NULL
+LIMIT 1;";
+
+            sourceOrderCommand.Parameters.AddWithValue(
+                "$tableId",
+                sourceTableId);
+
+            sourceOrderId = Convert.ToInt64(
+                sourceOrderCommand.ExecuteScalar()
+                ?? throw new InvalidOperationException(
+                    "Kaynak masada açık adisyon bulunamadı."));
+        }
+
+        long targetOrderId;
+
+        using (var targetOrderCommand =
+               connection.CreateCommand())
+        {
+            targetOrderCommand.Transaction = transaction;
+            targetOrderCommand.CommandText = @"
+SELECT Id
+FROM Orders
+WHERE TableId = $tableId
+  AND Status = 0
+  AND ClosedAt IS NULL
+LIMIT 1;";
+
+            targetOrderCommand.Parameters.AddWithValue(
+                "$tableId",
+                targetTableId);
+
+            object? existingTargetOrderId =
+                targetOrderCommand.ExecuteScalar();
+
+            if (existingTargetOrderId is not null)
+            {
+                targetOrderId =
+                    Convert.ToInt64(existingTargetOrderId);
+            }
+            else
+            {
+                targetOrderCommand.CommandText = @"
+INSERT INTO Orders
+(
+    TableId,
+    OpenedAt,
+    BusinessDate,
+    ClosedAt,
+    Status
+)
+VALUES
+(
+    $tableId,
+    $openedAt,
+    $businessDate,
+    NULL,
+    0
+);
+SELECT last_insert_rowid();";
+
+                targetOrderCommand.Parameters.Clear();
+
+                targetOrderCommand.Parameters.AddWithValue(
+                    "$tableId",
+                    targetTableId);
+
+                targetOrderCommand.Parameters.AddWithValue(
+                    "$openedAt",
+                    DateTime.Now.ToString("O"));
+
+                targetOrderCommand.Parameters.AddWithValue(
+                    "$businessDate",
+                    GetActiveBusinessDate(connection)
+                        .ToString("yyyy-MM-dd"));
+
+                targetOrderId = Convert.ToInt64(
+                    targetOrderCommand.ExecuteScalar());
+            }
+        }
+
+        foreach (SavedOrderItem transferItem in items)
+        {
+            long sourceItemId;
+            int sourceQuantity;
+            int sourceSentQuantity;
+            decimal sourceUnitPrice;
+            string sourceNote;
+
+            using (var sourceItemCommand =
+                   connection.CreateCommand())
+            {
+                sourceItemCommand.Transaction = transaction;
+                sourceItemCommand.CommandText = @"
+SELECT
+    Id,
+    Quantity,
+    SentQuantity,
+    UnitPrice,
+    Note
+FROM OrderItems
+WHERE OrderId = $orderId
+  AND ProductId = $productId
+LIMIT 1;";
+
+                sourceItemCommand.Parameters.AddWithValue(
+                    "$orderId",
+                    sourceOrderId);
+
+                sourceItemCommand.Parameters.AddWithValue(
+                    "$productId",
+                    transferItem.ProductId);
+
+                using var reader =
+                    sourceItemCommand.ExecuteReader();
+
+                if (!reader.Read())
+                {
+                    throw new InvalidOperationException(
+                        $"{transferItem.Name} kaynak adisyonda bulunamadı.");
+                }
+
+                sourceItemId = reader.GetInt64(0);
+                sourceQuantity = reader.GetInt32(1);
+                sourceSentQuantity = reader.GetInt32(2);
+
+                sourceUnitPrice = Convert.ToDecimal(
+                    reader.GetDouble(3),
+                    CultureInfo.InvariantCulture);
+
+                sourceNote = reader.IsDBNull(4)
+                    ? string.Empty
+                    : reader.GetString(4);
+            }
+
+            if (transferItem.Quantity > sourceQuantity)
+            {
+                throw new InvalidOperationException(
+                    $"{transferItem.Name} için aktarılmak istenen " +
+                    "miktar mevcut miktardan fazla.");
+            }
+
+            int transferredQuantity =
+                transferItem.Quantity;
+
+            int transferredSentQuantity =
+                Math.Min(
+                    sourceSentQuantity,
+                    transferredQuantity);
+
+            int remainingQuantity =
+                sourceQuantity - transferredQuantity;
+
+            int remainingSentQuantity =
+                Math.Max(
+                    0,
+                    sourceSentQuantity -
+                    transferredSentQuantity);
+
+            if (remainingQuantity == 0)
+            {
+                using var deleteSourceItemCommand =
+                    connection.CreateCommand();
+
+                deleteSourceItemCommand.Transaction =
+                    transaction;
+
+                deleteSourceItemCommand.CommandText = @"
+DELETE FROM OrderItems
+WHERE Id = $itemId;";
+
+                deleteSourceItemCommand.Parameters.AddWithValue(
+                    "$itemId",
+                    sourceItemId);
+
+                deleteSourceItemCommand.ExecuteNonQuery();
+            }
+            else
+            {
+                using var updateSourceItemCommand =
+                    connection.CreateCommand();
+
+                updateSourceItemCommand.Transaction =
+                    transaction;
+
+                updateSourceItemCommand.CommandText = @"
+UPDATE OrderItems
+SET Quantity = $quantity,
+    SentQuantity = $sentQuantity
+WHERE Id = $itemId;";
+
+                updateSourceItemCommand.Parameters.AddWithValue(
+                    "$quantity",
+                    remainingQuantity);
+
+                updateSourceItemCommand.Parameters.AddWithValue(
+                    "$sentQuantity",
+                    Math.Min(
+                        remainingSentQuantity,
+                        remainingQuantity));
+
+                updateSourceItemCommand.Parameters.AddWithValue(
+                    "$itemId",
+                    sourceItemId);
+
+                updateSourceItemCommand.ExecuteNonQuery();
+            }
+
+            long? targetItemId = null;
+            int targetQuantity = 0;
+            int targetSentQuantity = 0;
+
+            using (var targetItemCommand =
+                   connection.CreateCommand())
+            {
+                targetItemCommand.Transaction = transaction;
+                targetItemCommand.CommandText = @"
+SELECT
+    Id,
+    Quantity,
+    SentQuantity
+FROM OrderItems
+WHERE OrderId = $orderId
+  AND ProductId = $productId
+  AND UnitPrice = $unitPrice
+  AND Note = $note
+LIMIT 1;";
+
+                targetItemCommand.Parameters.AddWithValue(
+                    "$orderId",
+                    targetOrderId);
+
+                targetItemCommand.Parameters.AddWithValue(
+                    "$productId",
+                    transferItem.ProductId);
+
+                targetItemCommand.Parameters.AddWithValue(
+                    "$unitPrice",
+                    sourceUnitPrice);
+
+                targetItemCommand.Parameters.AddWithValue(
+                    "$note",
+                    sourceNote);
+
+                using var reader =
+                    targetItemCommand.ExecuteReader();
+
+                if (reader.Read())
+                {
+                    targetItemId = reader.GetInt64(0);
+                    targetQuantity = reader.GetInt32(1);
+                    targetSentQuantity = reader.GetInt32(2);
+                }
+            }
+
+            if (targetItemId.HasValue)
+            {
+                int newTargetQuantity =
+                    targetQuantity +
+                    transferredQuantity;
+
+                int newTargetSentQuantity =
+                    Math.Min(
+                        newTargetQuantity,
+                        targetSentQuantity +
+                        transferredSentQuantity);
+
+                using var updateTargetItemCommand =
+                    connection.CreateCommand();
+
+                updateTargetItemCommand.Transaction =
+                    transaction;
+
+                updateTargetItemCommand.CommandText = @"
+UPDATE OrderItems
+SET Quantity = $quantity,
+    SentQuantity = $sentQuantity
+WHERE Id = $itemId;";
+
+                updateTargetItemCommand.Parameters.AddWithValue(
+                    "$quantity",
+                    newTargetQuantity);
+
+                updateTargetItemCommand.Parameters.AddWithValue(
+                    "$sentQuantity",
+                    newTargetSentQuantity);
+
+                updateTargetItemCommand.Parameters.AddWithValue(
+                    "$itemId",
+                    targetItemId.Value);
+
+                updateTargetItemCommand.ExecuteNonQuery();
+            }
+            else
+            {
+                using var insertTargetItemCommand =
+                    connection.CreateCommand();
+
+                insertTargetItemCommand.Transaction =
+                    transaction;
+
+                insertTargetItemCommand.CommandText = @"
+INSERT INTO OrderItems
+(
+    OrderId,
+    ProductId,
+    Quantity,
+    UnitPrice,
+    SentQuantity,
+    Note
+)
+VALUES
+(
+    $orderId,
+    $productId,
+    $quantity,
+    $unitPrice,
+    $sentQuantity,
+    $note
+);";
+
+                insertTargetItemCommand.Parameters.AddWithValue(
+                    "$orderId",
+                    targetOrderId);
+
+                insertTargetItemCommand.Parameters.AddWithValue(
+                    "$productId",
+                    transferItem.ProductId);
+
+                insertTargetItemCommand.Parameters.AddWithValue(
+                    "$quantity",
+                    transferredQuantity);
+
+                insertTargetItemCommand.Parameters.AddWithValue(
+                    "$unitPrice",
+                    sourceUnitPrice);
+
+                insertTargetItemCommand.Parameters.AddWithValue(
+                    "$sentQuantity",
+                    transferredSentQuantity);
+
+                insertTargetItemCommand.Parameters.AddWithValue(
+                    "$note",
+                    sourceNote);
+
+                insertTargetItemCommand.ExecuteNonQuery();
+            }
+        }
+
+        long remainingItemCount;
+
+        using (var countCommand = connection.CreateCommand())
+        {
+            countCommand.Transaction = transaction;
+            countCommand.CommandText = @"
+SELECT COUNT(*)
+FROM OrderItems
+WHERE OrderId = $orderId;";
+
+            countCommand.Parameters.AddWithValue(
+                "$orderId",
+                sourceOrderId);
+
+            remainingItemCount = Convert.ToInt64(
+                countCommand.ExecuteScalar() ?? 0L);
+        }
+
+        if (remainingItemCount == 0)
+        {
+            using var deleteSourceOrderCommand =
+                connection.CreateCommand();
+
+            deleteSourceOrderCommand.Transaction =
+                transaction;
+
+            deleteSourceOrderCommand.CommandText = @"
+DELETE FROM Orders
+WHERE Id = $orderId;";
+
+            deleteSourceOrderCommand.Parameters.AddWithValue(
+                "$orderId",
+                sourceOrderId);
+
+            deleteSourceOrderCommand.ExecuteNonQuery();
+        }
+
+        using (var statusCommand = connection.CreateCommand())
+        {
+            statusCommand.Transaction = transaction;
+            statusCommand.CommandText = @"
+UPDATE Tables
+SET Status =
+    CASE
+        WHEN Id = $sourceTableId
+            THEN $sourceStatus
+        WHEN Id = $targetTableId
+            THEN 1
+        ELSE Status
+    END
+WHERE Id IN
+(
+    $sourceTableId,
+    $targetTableId
+);";
+
+            statusCommand.Parameters.AddWithValue(
+                "$sourceTableId",
+                sourceTableId);
+
+            statusCommand.Parameters.AddWithValue(
+                "$targetTableId",
+                targetTableId);
+
+            statusCommand.Parameters.AddWithValue(
+                "$sourceStatus",
+                remainingItemCount > 0 ? 1 : 0);
+
+            statusCommand.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
     public static void DeleteOpenOrder(string tableName)
     {
         using var connection = new SqliteConnection(ConnectionString);

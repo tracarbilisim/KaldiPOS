@@ -5,10 +5,10 @@
 
     <Page.Resources>
         <Style x:Key="CategoryButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="48"/>
-            <Setter Property="MinWidth" Value="118"/>
-            <Setter Property="Margin" Value="0,0,8,0"/>
-            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Width" Value="112"/>
+            <Setter Property="Margin" Value="0,0,7,7"/>
+            <Setter Property="Padding" Value="6,0"/>
             <Setter Property="Foreground" Value="#FFFDF8"/>
             <Setter Property="Background" Value="#211E1A"/>
             <Setter Property="BorderBrush" Value="#765A32"/>
@@ -24,8 +24,14 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="9">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
+                            <TextBlock Text="{TemplateBinding Content}"
+           HorizontalAlignment="Center"
+           VerticalAlignment="Center"
+           TextAlignment="Center"
+           TextWrapping="NoWrap"
+           TextTrimming="CharacterEllipsis"
+           FontSize="12"
+           FontWeight="Bold"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -71,6 +77,75 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="OrderScrollBarThumb"
+       TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="ThumbBorder"
+                        Margin="1,2"
+                        Background="#A97831"
+                        CornerRadius="3"/>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver"
+                             Value="True">
+                                <Setter TargetName="ThumbBorder"
+                                Property="Background"
+                                Value="#D4A64F"/>
+                            </Trigger>
+
+                            <Trigger Property="IsDragging"
+                             Value="True">
+                                <Setter TargetName="ThumbBorder"
+                                Property="Background"
+                                Value="#E8BD68"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="OrderVerticalScrollBar"
+       TargetType="ScrollBar">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="MinWidth" Value="8"/>
+            <Setter Property="Background" Value="#1B1814"/>
+
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Width="8"
+                      Background="{TemplateBinding Background}">
+
+                            <Track x:Name="PART_Track"
+                           Orientation="Vertical"
+                           IsDirectionReversed="True">
+
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageUpCommand"
+                                          Opacity="0"
+                                          Focusable="False"/>
+                                </Track.DecreaseRepeatButton>
+
+                                <Track.Thumb>
+                                    <Thumb MinHeight="34"
+                                   Style="{StaticResource OrderScrollBarThumb}"/>
+                                </Track.Thumb>
+
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageDownCommand"
+                                          Opacity="0"
+                                          Focusable="False"/>
+                                </Track.IncreaseRepeatButton>
+
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Page.Resources>
 
     <Grid Margin="10">
@@ -83,80 +158,63 @@
         <!-- ÜRÜN ÇALIŞMA ALANI -->
         <Grid Grid.Column="0">
             <Grid.RowDefinitions>
-                <RowDefinition Height="68"/>
-                <RowDefinition Height="10"/>
+                <RowDefinition Height="150"/>
+                <RowDefinition Height="8"/>
+                <RowDefinition Height="38"/>
+                <RowDefinition Height="8"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- YATAY KATEGORİLER VE ARAMA -->
+            <!-- KATEGORİLER -->
             <Border Grid.Row="0"
-                    Padding="10"
-                    Background="#171512"
-                    BorderBrush="#765A32"
-                    BorderThickness="1"
-                    CornerRadius="12">
+        Padding="10,7"
+        Background="#171512"
+        BorderBrush="#765A32"
+        BorderThickness="1"
+        CornerRadius="12">
+
+                <Grid>
+                    <WrapPanel x:Name="CategoryPanel"
+               Orientation="Horizontal"
+               VerticalAlignment="Top"/>
+                </Grid>
+            </Border>
+
+            <!-- ÜRÜN ARAMA -->
+            <Border Grid.Row="2"
+        Background="#171512"
+        BorderBrush="#765A32"
+        BorderThickness="1"
+        CornerRadius="9">
+
                 <Grid>
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="42"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="230"/>
                     </Grid.ColumnDefinitions>
 
-                    <ScrollViewer Grid.Column="0"
-                                  HorizontalScrollBarVisibility="Hidden"
-                                  VerticalScrollBarVisibility="Disabled">
-                        <ItemsControl x:Name="CategoriesItemsControl">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button Content="{Binding}"
-                                            Tag="{Binding}"
-                                            Style="{StaticResource CategoryButtonStyle}"
-                                            Click="CategoryButton_Click"/>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                    <TextBlock Text="⌕"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   FontSize="22"
+                   Foreground="#E2BE79"/>
 
-                    <Border Grid.Column="1"
-                            Height="46"
-                            Margin="8,0,0,0"
-                            VerticalAlignment="Center"
-                            Background="#211E1A"
-                            BorderBrush="#765A32"
-                            BorderThickness="1"
-                            CornerRadius="9">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="40"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="ProductSearchTextBox"
-                                     Margin="12,0,4,0"
-                                     VerticalContentAlignment="Center"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     Foreground="#FFFDF8"
-                                     CaretBrush="#FFFDF8"
-                                     FontSize="14"
-                                     ToolTip="Ürün ara"
-                                     TextChanged="ProductSearchTextBox_TextChanged"/>
-                            <TextBlock Grid.Column="1"
-                                       Text="⌕"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       FontSize="23"
-                                       Foreground="#D0A354"/>
-                        </Grid>
-                    </Border>
+                    <TextBox x:Name="ProductSearchTextBox"
+                 Grid.Column="1"
+                 Padding="0,0,12,0"
+                 VerticalContentAlignment="Center"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 Foreground="#FFFDF8"
+                 CaretBrush="#FFFDF8"
+                 FontSize="13"
+                 ToolTip="Ürün ara"
+                 TextChanged="ProductSearchTextBox_TextChanged"/>
                 </Grid>
             </Border>
 
             <!-- ÜRÜNLER -->
-            <Border Grid.Row="2"
+            <Border Grid.Row="4"
                     Padding="12"
                     Background="#171512"
                     BorderBrush="#765A32"
@@ -177,8 +235,13 @@
                                Foreground="#FFFDF8"/>
 
                     <ScrollViewer Grid.Row="1"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled">
+              VerticalScrollBarVisibility="Auto"
+              HorizontalScrollBarVisibility="Disabled">
+
+                        <ScrollViewer.Resources>
+                            <Style TargetType="ScrollBar"
+               BasedOn="{StaticResource OrderVerticalScrollBar}"/>
+                        </ScrollViewer.Resources>
                         <ItemsControl x:Name="ProductsItemsControl">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -187,9 +250,9 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Width="150"
+                                    <Button Width="136"
                                             Height="156"
-                                            Margin="5"
+                                            Margin="4"
                                             Padding="0"
                                             Tag="{Binding}"
                                             Background="#211E1A"
@@ -286,13 +349,19 @@
                 CornerRadius="12">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="54"/>
+                    <RowDefinition Height="48"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="1"/>
-                    <RowDefinition Height="70"/>
                     <RowDefinition Height="52"/>
-                    <RowDefinition Height="10"/>
-                    <RowDefinition Height="48"/>
+                    <RowDefinition Height="38"/>
+                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="36"/>
+                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="36"/>
+                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="36"/>
+                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="38"/>
                 </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0">
@@ -323,130 +392,185 @@
                 </Grid>
 
                 <ListBox x:Name="OrderListBox"
-                         Grid.Row="1"
-                         Margin="0,8,0,10"
-                         ItemsSource="{Binding OrderItems}"
-                         Background="Transparent"
-                         BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         ScrollViewer.VerticalScrollBarVisibility="Auto">
+         Grid.Row="1"
+         Margin="0,8,0,10"
+         Padding="0,0,4,0"
+         ItemsSource="{Binding OrderItems}"
+         Background="Transparent"
+         BorderThickness="0"
+         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+         ScrollViewer.VerticalScrollBarVisibility="Auto">
+
+                    <ListBox.Resources>
+                        <Style TargetType="ScrollBar"
+               BasedOn="{StaticResource OrderVerticalScrollBar}"/>
+                    </ListBox.Resources>
+
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                             <Setter Property="Padding" Value="0"/>
-                            <Setter Property="Margin" Value="0,0,0,7"/>
+                            <Setter Property="Margin" Value="0,0,0,5"/>
                             <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="BorderThickness" Value="0"/>
                             <Setter Property="Focusable" Value="False"/>
                         </Style>
                     </ListBox.ItemContainerStyle>
+
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Padding="8"
-                                    BorderThickness="1"
-                                    CornerRadius="8">
+                            <Border Padding="7,6"
+                BorderThickness="1"
+                CornerRadius="7">
+
                                 <Border.Style>
                                     <Style TargetType="Border">
                                         <Setter Property="Background" Value="#211E1A"/>
                                         <Setter Property="BorderBrush" Value="#4A3B25"/>
+
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding HasUnsentItems}" Value="True">
-                                                <Setter Property="Background" Value="#332A1B"/>
-                                                <Setter Property="BorderBrush" Value="#E2B85F"/>
-                                                <Setter Property="BorderThickness" Value="2"/>
+                                            <DataTrigger Binding="{Binding HasUnsentItems}"
+                                     Value="True">
+                                                <Setter Property="Background" Value="#2C261C"/>
+                                                <Setter Property="BorderBrush" Value="#B78638"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
+
                                 <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="72"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Button Content="−"
-                                                Width="30"
-                                                Height="30"
-                                                Padding="0"
-                                                Tag="{Binding}"
-                                                Style="{StaticResource CategoryButtonStyle}"
-                                                MinWidth="30"
-                                                Margin="0"
-                                                Click="DecreaseButton_Click"/>
-                                        <TextBlock Text="{Binding Quantity}"
-                                                   Width="30"
-                                                   VerticalAlignment="Center"
-                                                   TextAlignment="Center"
-                                                   FontSize="14"
-                                                   FontWeight="Bold"
-                                                   Foreground="#FFFDF8"/>
-                                        <Button Content="+"
-                                                Width="30"
-                                                Height="30"
-                                                Padding="0"
-                                                Tag="{Binding}"
-                                                Style="{StaticResource CategoryButtonStyle}"
-                                                MinWidth="30"
-                                                Margin="0"
-                                                Click="IncreaseButton_Click"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{Binding Name}"
-                                                       FontSize="14"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#FFFDF8"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <Border Grid.Column="1"
-                                                    Margin="8,0,0,0"
-                                                    Padding="7,3"
-                                                    CornerRadius="5">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="#31543B"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding HasUnsentItems}" Value="True">
-                                                                <Setter Property="Background" Value="#8A6420"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <TextBlock Text="{Binding StatusText}"
-                                                           FontSize="10"
-                                                           FontWeight="Bold"
-                                                           Foreground="White"/>
-                                            </Border>
-                                        </Grid>
-                                        <TextBlock Text="{Binding LineTotalText}"
-                                                   Margin="0,3,0,0"
-                                                   FontSize="12"
-                                                   Foreground="#E2B85F"/>
-                                        <Grid Margin="0,5,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Üst satır -->
+                                    <Grid Grid.Row="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Miktar -->
+                                        <Border Grid.Column="0"
+                            Height="27"
+                            Background="#171512"
+                            BorderBrush="#66502F"
+                            BorderThickness="1"
+                            CornerRadius="6">
+
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="−"
+                                    Width="26"
+                                    Height="25"
+                                    MinWidth="26"
+                                    Padding="0"
+                                    Margin="0"
+                                    Tag="{Binding}"
+                                    FontSize="13"
+                                    Style="{StaticResource CategoryButtonStyle}"
+                                    Click="DecreaseButton_Click"/>
+
+                                                <TextBlock Text="{Binding Quantity}"
+                                       Width="25"
+                                       VerticalAlignment="Center"
+                                       TextAlignment="Center"
+                                       FontSize="12"
+                                       FontWeight="Bold"
+                                       Foreground="#FFFDF8"/>
+
+                                                <Button Content="+"
+                                    Width="26"
+                                    Height="25"
+                                    MinWidth="26"
+                                    Padding="0"
+                                    Margin="0"
+                                    Tag="{Binding}"
+                                    FontSize="13"
+                                    Style="{StaticResource CategoryButtonStyle}"
+                                    Click="IncreaseButton_Click"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Ürün adı -->
+                                        <TextBlock Grid.Column="1"
+                               Text="{Binding Name}"
+                               Margin="8,0,6,0"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="#FFFDF8"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Name}"/>
+
+                                        <!-- Durum -->
+                                        <Border Grid.Column="2"
+                            MinWidth="64"
+                            Height="20"
+                            Padding="7,0"
+                            VerticalAlignment="Center"
+                            CornerRadius="10">
+
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#31543B"/>
+
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasUnsentItems}"
+                                                 Value="True">
+                                                            <Setter Property="Background"
+                                                Value="#9B6A25"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+
+                                            <TextBlock Text="{Binding StatusText}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="8"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"/>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Alt satır -->
+                                    <Grid Grid.Row="1"
+                      Margin="85,4,0,0">
+
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding LineTotalText}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="#E2B85F"/>
+
                                             <TextBlock Text="{Binding NoteDisplay}"
-                                                       VerticalAlignment="Center"
-                                                       FontSize="11"
-                                                       FontStyle="Italic"
-                                                       Foreground="#BDB7AD"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <Button Grid.Column="1"
-                                                    Content="Not"
-                                                    Width="48"
-                                                    Height="28"
-                                                    Margin="8,0,0,0"
-                                                    Padding="0"
-                                                    Tag="{Binding}"
-                                                    Style="{StaticResource CategoryButtonStyle}"
-                                                    Click="NoteButton_Click"/>
-                                        </Grid>
-                                    </StackPanel>
+                                   Margin="0,2,0,0"
+                                   FontSize="9.5"
+                                   FontStyle="Italic"
+                                   Foreground="#BDB7AD"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding NoteDisplay}"/>
+                                        </StackPanel>
+
+                                        <Button Grid.Column="1"
+                            Content="Not"
+                            Width="43"
+                            Height="24"
+                            Margin="6,0,0,0"
+                            Padding="0"
+                            VerticalAlignment="Bottom"
+                            Tag="{Binding}"
+                            FontSize="9.5"
+                            Style="{StaticResource CategoryButtonStyle}"
+                            Click="NoteButton_Click"/>
+                                    </Grid>
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -469,26 +593,55 @@
                                Grid.Column="1"
                                Text="0,00 ₺"
                                VerticalAlignment="Center"
-                               FontSize="25"
+                               FontSize="21"
                                FontWeight="Bold"
                                Foreground="#58C878"/>
                 </Grid>
 
                 <Button Grid.Row="4"
-                        Content="Siparişi Gönder"
-                        Background="#D0A354"
-                        BorderBrush="#E2B85F"
-                        Foreground="#18140E"
-                        Style="{StaticResource ActionButtonStyle}"
-                        Click="SendOrderButton_Click"/>
+        Height="38"
+        Content="Siparişi Gönder"
+        Background="#D0A354"
+        BorderBrush="#E2B85F"
+        Foreground="#18140E"
+        Style="{StaticResource ActionButtonStyle}"
+        Click="SendOrderButton_Click"/>
 
                 <Button Grid.Row="6"
-                        Content="Ödeme Al"
-                        Background="#211E1A"
-                        BorderBrush="#765A32"
-                        Foreground="#FFFDF8"
-                        Style="{StaticResource ActionButtonStyle}"
-                        Click="PaymentButton_Click"/>
+        Height="36"
+        Content="Masayı Aktar"
+        Background="#2A2722"
+        BorderBrush="#765A32"
+        Foreground="#E2BE79"
+        Style="{StaticResource ActionButtonStyle}"
+        Click="TransferTableButton_Click"/>
+
+                <Button Grid.Row="8"
+        Height="36"
+        Content="Masa Birleştir"
+        Background="#2A2722"
+        BorderBrush="#8A5A3B"
+        Foreground="#E2BE79"
+        Style="{StaticResource ActionButtonStyle}"
+        Click="MergeTableButton_Click"/>
+
+                <Button Grid.Row="10"
+        Height="36"
+        Content="Ürün Aktar"
+        Background="#2A2722"
+        BorderBrush="#765A32"
+        Foreground="#E2BE79"
+        Style="{StaticResource ActionButtonStyle}"
+        Click="TransferProductButton_Click"/>
+
+                <Button Grid.Row="12"
+        Height="38"
+        Content="Ödeme Al"
+        Background="#211E1A"
+        BorderBrush="#765A32"
+        Foreground="#FFFDF8"
+        Style="{StaticResource ActionButtonStyle}"
+        Click="PaymentButton_Click"/>
             </Grid>
         </Border>
     </Grid>

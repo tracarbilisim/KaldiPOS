@@ -16,6 +16,11 @@ namespace KaldiPOS
         private readonly DispatcherTimer _clockTimer;
         private readonly UIElement _tablesContent;
         private bool _isMenuExpanded;
+        private Button? _dragSourceButton;
+        private TableRecord? _dragSourceTable;
+        private Point _dragStartPoint;
+        private bool _isTableDragging;
+        private bool _suppressTableClick;
 
         public MainWindow()
         {
@@ -44,37 +49,23 @@ namespace KaldiPOS
 
         private void ApplyUserPermissions()
         {
-            string role = UserSession.CurrentUser?.Role ?? string.Empty;
-
-            bool isManager =
-                string.Equals(
-                    role,
-                    "Yönetici",
-                    StringComparison.OrdinalIgnoreCase);
-
-            bool isCashier =
-                string.Equals(
-                    role,
-                    "Kasiyer",
-                    StringComparison.OrdinalIgnoreCase);
-
             ProductsMenuButton.Visibility =
-                isManager
+                UserSession.HasPermission("Menu.Products")
                     ? Visibility.Visible
                     : Visibility.Collapsed;
 
             ReportsMenuButton.Visibility =
-                isManager || isCashier
+                UserSession.HasPermission("Menu.Reports")
                     ? Visibility.Visible
                     : Visibility.Collapsed;
 
             EndOfDayMenuButton.Visibility =
-                isManager
+                UserSession.HasPermission("Menu.DayEnd")
                     ? Visibility.Visible
                     : Visibility.Collapsed;
 
             SettingsMenuButton.Visibility =
-                isManager
+                UserSession.HasPermission("Menu.Settings")
                     ? Visibility.Visible
                     : Visibility.Collapsed;
         }
@@ -139,6 +130,25 @@ namespace KaldiPOS
                 };
 
                 button.Click += TableButton_Click;
+                button.PreviewMouseLeftButtonDown +=
+                    TableButton_PreviewMouseLeftButtonDown;
+
+                button.PreviewMouseMove +=
+                    TableButton_PreviewMouseMove;
+
+                button.AllowDrop = true;
+
+                button.PreviewDragEnter +=
+                    TableButton_DragEnter;
+
+                button.PreviewDragOver +=
+                    TableButton_DragOver;
+
+                button.PreviewDragLeave +=
+                    TableButton_DragLeave;
+
+                button.PreviewDrop +=
+                    TableButton_Drop;
                 TablesPanel.Children.Add(button);
             }
         }
@@ -267,8 +277,272 @@ namespace KaldiPOS
             PageDescriptionText.Text = description;
         }
 
+        private void TableButton_PreviewMouseLeftButtonDown(
+    object sender,
+    MouseButtonEventArgs e)
+        {
+            if (sender is not Button button ||
+                button.Tag is not TableRecord table ||
+                table.Status != 1)
+            {
+                _dragSourceButton = null;
+                _dragSourceTable = null;
+                return;
+            }
+
+            _dragSourceButton = button;
+            _dragSourceTable = table;
+            _dragStartPoint = e.GetPosition(this);
+        }
+
+        private void TableButton_PreviewMouseMove(
+            object sender,
+            MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed ||
+                _dragSourceButton is null ||
+                _dragSourceTable is null ||
+                _isTableDragging)
+            {
+                return;
+            }
+
+            Point currentPosition = e.GetPosition(this);
+
+            double horizontalDistance =
+                Math.Abs(currentPosition.X - _dragStartPoint.X);
+
+            double verticalDistance =
+                Math.Abs(currentPosition.Y - _dragStartPoint.Y);
+
+            if (horizontalDistance <
+                    SystemParameters.MinimumHorizontalDragDistance &&
+                verticalDistance <
+                    SystemParameters.MinimumVerticalDragDistance)
+            {
+                return;
+            }
+
+            if (!UserSession.HasPermission("Order.Transfer"))
+            {
+                KaldiMessageWindow.ShowWarning(
+                    this,
+                    "Yetkisiz İşlem",
+                    "Masa aktarma işlemi için yetkiniz bulunmuyor.");
+
+                ClearTableDragState();
+                return;
+            }
+
+            Button sourceButton = _dragSourceButton;
+            string sourceTableName = _dragSourceTable.Name;
+
+            _isTableDragging = true;
+            _suppressTableClick = true;
+
+            sourceButton.Opacity = 0.55;
+
+            try
+            {
+                DataObject dragData = new(
+                    "KaldiPOS.TableTransfer",
+                    sourceTableName);
+
+                DragDrop.DoDragDrop(
+                    sourceButton,
+                    dragData,
+                    DragDropEffects.Move);
+            }
+            finally
+            {
+                sourceButton.Opacity = 1;
+                _isTableDragging = false;
+
+                Dispatcher.BeginInvoke(
+                    new Action(() =>
+                    {
+                        _suppressTableClick = false;
+                    }),
+                    DispatcherPriority.Background);
+
+                _dragSourceButton = null;
+                _dragSourceTable = null;
+            }
+
+            e.Handled = true;
+        }
+
+        private void TableButton_DragEnter(
+            object sender,
+            DragEventArgs e)
+        {
+            if (sender is not Button button ||
+                button.Tag is not TableRecord targetTable ||
+                targetTable.Status != 0 ||
+                !e.Data.GetDataPresent("KaldiPOS.TableTransfer"))
+            {
+                e.Effects = DragDropEffects.None;
+                return;
+            }
+
+            string? sourceTableName =
+                e.Data.GetData("KaldiPOS.TableTransfer") as string;
+
+            if (string.Equals(
+                sourceTableName,
+                targetTable.Name,
+                StringComparison.CurrentCultureIgnoreCase))
+            {
+                e.Effects = DragDropEffects.None;
+                return;
+            }
+
+            button.BorderBrush =
+                new SolidColorBrush(
+                    Color.FromRgb(226, 190, 121));
+
+            button.BorderThickness = new Thickness(3);
+            button.Opacity = 0.85;
+
+            e.Effects = DragDropEffects.Move;
+            e.Handled = true;
+        }
+
+        private void TableButton_DragOver(
+    object sender,
+    DragEventArgs e)
+        {
+            if (sender is not Button button ||
+                button.Tag is not TableRecord targetTable ||
+                targetTable.Status != 0 ||
+                !e.Data.GetDataPresent("KaldiPOS.TableTransfer"))
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
+            string? sourceTableName =
+                e.Data.GetData("KaldiPOS.TableTransfer") as string;
+
+            if (string.IsNullOrWhiteSpace(sourceTableName) ||
+                string.Equals(
+                    sourceTableName,
+                    targetTable.Name,
+                    StringComparison.CurrentCultureIgnoreCase))
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
+            e.Effects = DragDropEffects.Move;
+            e.Handled = true;
+        }
+
+        private void TableButton_DragLeave(
+            object sender,
+            DragEventArgs e)
+        {
+            if (sender is not Button button)
+                return;
+
+            ResetTableDropAppearance(button);
+        }
+
+        private void TableButton_Drop(
+            object sender,
+            DragEventArgs e)
+        {
+            if (sender is not Button targetButton ||
+                targetButton.Tag is not TableRecord targetTable)
+            {
+                return;
+            }
+
+            ResetTableDropAppearance(targetButton);
+            e.Handled = true;
+
+            if (targetTable.Status != 0 ||
+                !e.Data.GetDataPresent("KaldiPOS.TableTransfer"))
+            {
+                return;
+            }
+
+            string? sourceTableName =
+                e.Data.GetData("KaldiPOS.TableTransfer") as string;
+
+            if (string.IsNullOrWhiteSpace(sourceTableName) ||
+                string.Equals(
+                    sourceTableName,
+                    targetTable.Name,
+                    StringComparison.CurrentCultureIgnoreCase))
+            {
+                return;
+            }
+
+            bool confirmed = KaldiDialog.ShowQuestion(
+                this,
+                "Masayı Aktar",
+                $"{sourceTableName} masasındaki adisyon " +
+                $"{targetTable.Name} masasına aktarılsın mı?");
+
+            if (!confirmed)
+            {
+                LoadTables();
+                return;
+            }
+
+            try
+            {
+                Database.TransferOpenOrder(
+                    sourceTableName,
+                    targetTable.Name);
+
+                LoadTables();
+
+                KaldiToastWindow.ShowSuccess(
+                    this,
+                    $"Adisyon {targetTable.Name} masasına aktarıldı.");
+            }
+            catch (Exception exception)
+            {
+                LoadTables();
+
+                KaldiMessageWindow.ShowWarning(
+                    this,
+                    "Masa Aktarılamadı",
+                    exception.Message);
+            }
+        }
+
+        private void ClearTableDragState()
+        {
+            if (_dragSourceButton is not null)
+                _dragSourceButton.Opacity = 1;
+
+            _dragSourceButton = null;
+            _dragSourceTable = null;
+            _isTableDragging = false;
+        }
+
+        private static void ResetTableDropAppearance(
+            Button button)
+        {
+            button.ClearValue(Control.BorderBrushProperty);
+            button.ClearValue(Control.BorderThicknessProperty);
+            button.Opacity = 1;
+        }
+
         private void TableButton_Click(object sender, RoutedEventArgs e)
         {
+
+            if (_suppressTableClick || _isTableDragging)
+            {
+                e.Handled = true;
+                return;
+            }
+
             if (sender is not Button button || button.Tag is not TableRecord table)
                 return;
 
@@ -315,15 +589,16 @@ namespace KaldiPOS
             Close();
         }
 
-        private void ExitButton_Click(object sender, RoutedEventArgs e)
+        private void ExitButton_Click(
+            object sender,
+            RoutedEventArgs e)
         {
-            MessageBoxResult result = MessageBox.Show(
-                "KaldiPOS uygulaması kapatılsın mı?",
+            bool confirmed = KaldiDialog.ShowQuestion(
+                this,
                 "Uygulamayı Kapat",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+                "KaldiPOS uygulaması kapatılsın mı?");
 
-            if (result == MessageBoxResult.Yes)
+            if (confirmed)
                 Application.Current.Shutdown();
         }
 

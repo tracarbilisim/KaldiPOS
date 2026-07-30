@@ -33,6 +33,176 @@
             <Setter Property="Foreground" Value="#BDB5AA"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
+        <Style x:Key="PermissionCheckBox"
+       TargetType="CheckBox">
+
+            <Setter Property="Foreground"
+            Value="#F4F0E8"/>
+
+            <Setter Property="FontSize"
+            Value="13"/>
+
+            <Setter Property="FontWeight"
+            Value="SemiBold"/>
+
+            <Setter Property="Margin"
+            Value="0,3"/>
+
+            <Setter Property="Cursor"
+            Value="Hand"/>
+
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="RowBorder"
+                        Background="#211E1A"
+                        BorderBrush="#493A27"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="9,7">
+                        
+                            <Grid>
+                                
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="22"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border x:Name="CheckBoxBorder"
+                                Width="17"
+                                Height="17"
+                                Background="#171512"
+                                BorderBrush="#8D6A36"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                VerticalAlignment="Center">
+
+                                    <Path x:Name="CheckMark"
+                                  Data="M 3 8 L 7 12 L 14 4"
+                                  Stroke="#171512"
+                                  StrokeThickness="2.2"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  Visibility="Collapsed"/>
+                                </Border>
+
+                                <ContentPresenter Grid.Column="1"
+                                          Margin="7,0,0,0"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"/>
+                            </Grid>
+                        </Border>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver"
+                             Value="True">
+                                <Setter TargetName="RowBorder"
+                                Property="Background"
+                                Value="#2A251F"/>
+                                <Setter TargetName="RowBorder"
+                                Property="BorderBrush"
+                                Value="#8D6A36"/>
+                            </Trigger>
+
+                            <Trigger Property="IsChecked"
+                             Value="True">
+                                <Setter TargetName="CheckBoxBorder"
+                                Property="Background"
+                                Value="#D9A94D"/>
+                                <Setter TargetName="CheckBoxBorder"
+                                Property="BorderBrush"
+                                Value="#F0C66F"/>
+                                <Setter TargetName="CheckMark"
+                                Property="Visibility"
+                                Value="Visible"/>
+                                <Setter TargetName="RowBorder"
+                                Property="Background"
+                                Value="#302719"/>
+                                <Setter TargetName="RowBorder"
+                                Property="BorderBrush"
+                                Value="#B1843E"/>
+                            </Trigger>
+
+                            <Trigger Property="IsEnabled"
+                             Value="False">
+                                <Setter TargetName="RowBorder"
+                                Property="Opacity"
+                                Value="0.48"/>
+                                <Setter Property="Cursor"
+                                Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PermissionScrollBar"
+       TargetType="ScrollBar">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="MinWidth" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Width="8"
+                      Background="#1B1814">
+
+                            <Track x:Name="PART_Track"
+                           Orientation="Vertical"
+                           IsDirectionReversed="True">
+
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageUpCommand"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          Opacity="0"/>
+                                </Track.DecreaseRepeatButton>
+
+                                <Track.Thumb>
+                                    <Thumb Width="6"
+                                   Margin="1,2"
+                                   Cursor="Hand">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border x:Name="ThumbBorder"
+                                                Background="#9A7338"
+                                                CornerRadius="3"/>
+
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver"
+                                                     Value="True">
+                                                        <Setter TargetName="ThumbBorder"
+                                                        Property="Background"
+                                                        Value="#D4A64F"/>
+                                                    </Trigger>
+
+                                                    <Trigger Property="IsDragging"
+                                                     Value="True">
+                                                        <Setter TargetName="ThumbBorder"
+                                                        Property="Background"
+                                                        Value="#E8BD68"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageDownCommand"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          Opacity="0"/>
+                                </Track.IncreaseRepeatButton>
+
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Page.Resources>
 
     <Grid Margin="18">
@@ -103,7 +273,8 @@
                 BorderThickness="1">
 
             <Grid>
-                <!-- İŞLETME -->
+        
+        <!-- İŞLETME -->
                 <Grid x:Name="BusinessPanel">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -381,7 +552,7 @@
                 BorderBrush="#765A32"
                 BorderThickness="1">
 
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <Grid>
                                 <StackPanel>
                                     <TextBlock x:Name="UserFormTitleText"
                                Text="Yeni Kullanıcı"
@@ -408,13 +579,13 @@
                                  "UserPinPasswordBox_PreviewTextInput"/>
 
                                     <TextBlock Text="Düzenlemede PIN değişmeyecekse boş bırakın."
-                               Margin="0,6,0,0"
+                               Margin="0,4,0,0"
                                TextWrapping="Wrap"
                                FontSize="12"
                                Foreground="#918A80"/>
 
                                     <TextBlock Text="Rol"
-                               Margin="0,18,0,6"
+                               Margin="0,14,0,4"
                                Style="{StaticResource FieldLabel}"/>
 
                                     <ComboBox x:Name="UserRoleComboBox"
@@ -428,8 +599,8 @@
 
                                     <Button x:Name="SaveUserButton"
                             Content="Kullanıcıyı Kaydet"
-                            Height="44"
-                            Margin="0,24,0,0"
+                            Height="40"
+                            Margin="0,18,0,0"
                             Click="SaveUserButton_Click"
                             Background="#D4A64F"
                             Foreground="#171512"
@@ -439,8 +610,8 @@
 
                                     <Button x:Name="ToggleUserStatusButton"
                             Content="Kullanıcıyı Pasifleştir"
-                            Height="42"
-                            Margin="0,10,0,0"
+                            Height="38"
+                            Margin="0,8,0,0"
                             Visibility="Collapsed"
                             Click="ToggleUserStatusButton_Click"
                             Background="#7D3C3C"
@@ -450,8 +621,8 @@
                             Cursor="Hand"/>
 
                                     <Button Content="Formu Temizle"
-                            Height="40"
-                            Margin="0,10,0,0"
+                            Height="36"
+                            Margin="0,8,0,0"
                             Click="NewUserButton_Click"
                             Background="#3A342D"
                             Foreground="White"
@@ -460,7 +631,7 @@
                             FontWeight="SemiBold"
                             Cursor="Hand"/>
                                 </StackPanel>
-                            </ScrollViewer>
+                            </Grid>
                         </Border>
 
                         <!-- YETKİLER -->
@@ -519,103 +690,128 @@
                                 </StackPanel>
 
                                 <ScrollViewer Grid.Row="1"
-                              Margin="0,14,0,14"
-                              VerticalScrollBarVisibility="Auto">
+              Margin="0,14,0,14"
+              VerticalScrollBarVisibility="Auto"
+              HorizontalScrollBarVisibility="Disabled">
+
+                                    <ScrollViewer.Resources>
+                                        <Style TargetType="ScrollBar"
+               BasedOn="{StaticResource PermissionScrollBar}"/>
+                                    </ScrollViewer.Resources>
 
                                     <StackPanel x:Name="PermissionsPanel"
                                 IsEnabled="False">
 
                                         <TextBlock Text="SİPARİŞ İŞLEMLERİ"
-                                   Margin="0,0,0,7"
-                                   FontWeight="Bold"
-                                   Foreground="#D4A64F"/>
+                                                   Margin="0,18,0,8"
+                                                   FontSize="15"                
+                                                   FontWeight="Bold"
+                                                   Foreground="#D4A64F"/>
 
                                         <CheckBox Content="Ürün ekleme"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Order.AddItem"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Ürün silme"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Order.RemoveItem"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Ürün adedini artırma"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Order.IncreaseQuantity"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Ürün adedini azaltma"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Order.DecreaseQuantity"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Sipariş notu ekleme"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Order.Note"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="İkram yapma"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Order.Treat"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="İndirim uygulama"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Order.Discount"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Adisyon aktarma"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Order.Transfer"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <TextBlock Text="ÖDEME İŞLEMLERİ"
-                                   Margin="0,18,0,7"
-                                   FontWeight="Bold"
-                                   Foreground="#D4A64F"/>
+                                                   Margin="0,18,0,8"
+                                                   FontSize="15"                
+                                                   FontWeight="Bold"
+                                                   Foreground="#D4A64F"/>
 
                                         <CheckBox Content="Nakit ödeme"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Payment.Cash"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Kart ödeme"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Payment.Card"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Karma ödeme"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Payment.Mixed"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Ödeme iadesi"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Payment.Refund"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Adisyon kapatma"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Payment.Close"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <TextBlock Text="MASA İŞLEMLERİ"
-                                   Margin="0,18,0,7"
-                                   FontWeight="Bold"
-                                   Foreground="#D4A64F"/>
+                                                   Margin="0,18,0,8"
+                                                   FontSize="15"                
+                                                   FontWeight="Bold"
+                                                   Foreground="#D4A64F"/>
 
                                         <CheckBox Content="Masa açma"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Table.Open"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Masa birleştirme"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Table.Merge"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Masa ayırma"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Table.Split"
                                   Foreground="White"
                                   Margin="0,5"/>
@@ -626,21 +822,25 @@
                                    Foreground="#D4A64F"/>
 
                                         <CheckBox Content="Ürünler menüsü"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Menu.Products"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Raporlar menüsü"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Menu.Reports"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Gün sonu menüsü"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Menu.DayEnd"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Ayarlar menüsü"
+                                                  Style="{StaticResource PermissionCheckBox}"
                                   Tag="Menu.Settings"
                                   Foreground="White"
                                   Margin="0,5"/>
@@ -651,29 +851,35 @@
                                    Foreground="#D4A64F"/>
 
                                         <CheckBox Content="Kullanıcı yönetimi"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Manage.Users"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Ürün yönetimi"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Manage.Products"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Kategori yönetimi"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Manage.Categories"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Yazıcı ayarları"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Manage.Printers"
                                   Foreground="White"
                                   Margin="0,5"/>
 
                                         <CheckBox Content="Yedekleme"
+                                                   Style="{StaticResource PermissionCheckBox}"
                                   Tag="Manage.Backup"
                                   Foreground="White"
                                   Margin="0,5"/>
+
                                     </StackPanel>
                                 </ScrollViewer>
 

@@ -1,0 +1,351 @@
+﻿<Window x:Class="KaldiPOS.Views.ProductTransferWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Ürün Aktar"
+        Width="650"
+        Height="560"
+        MinWidth="560"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+
+        <Style x:Key="WindowButtonStyle"
+               TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Opacity"
+                                        Value="0.85"/>
+                            </Trigger>
+
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Opacity"
+                                        Value="0.70"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TransferScrollThumbStyle"
+               TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="#D2A654"
+                                CornerRadius="4"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Background" Value="#171512"/>
+            <Setter Property="Margin" Value="5,0,0,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Track x:Name="PART_Track"
+                                   IsDirectionReversed="True">
+
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageUpCommand"
+                                                  Opacity="0"
+                                                  IsTabStop="False"/>
+                                </Track.DecreaseRepeatButton>
+
+                                <Track.Thumb>
+                                    <Thumb MinHeight="32"
+                                           Style="{StaticResource TransferScrollThumbStyle}"/>
+                                </Track.Thumb>
+
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageDownCommand"
+                                                  Opacity="0"
+                                                  IsTabStop="False"/>
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Window.Resources>
+
+    <Border Background="#11100E"
+            BorderBrush="#765A32"
+            BorderThickness="1"
+            CornerRadius="12">
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="52"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- BAŞLIK ÇUBUĞU -->
+            <Border Grid.Row="0"
+                    Background="#181613"
+                    BorderBrush="#765A32"
+                    BorderThickness="0,0,0,1"
+                    CornerRadius="12,12,0,0"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+
+                <Grid Margin="18,0,10,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="42"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Center">
+
+                        <TextBlock Text="↔"
+                                   Margin="0,0,10,0"
+                                   FontSize="20"
+                                   Foreground="#E2BE79"/>
+
+                        <TextBlock Text="Ürün Aktar"
+                                   VerticalAlignment="Center"
+                                   FontSize="15"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FFFDF8"/>
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Width="32"
+                            Height="32"
+                            Content="✕"
+                            FontSize="13"
+                            Foreground="#FFFDF8"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            Style="{StaticResource WindowButtonStyle}"
+                            Click="CloseButton_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- İÇERİK -->
+            <Grid Grid.Row="1"
+                  Margin="20">
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Aktarılacak ürünleri seçin"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="#FFFDF8"/>
+
+                        <TextBlock Text="Her ürün için aktarılacak miktarı belirleyin."
+                                   Margin="0,5,0,0"
+                                   FontSize="13"
+                                   Foreground="#B8B2A8"/>
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Width="115"
+                            Height="36"
+                            Content="Tümünü Seç"
+                            Background="#24211D"
+                            BorderBrush="#765A32"
+                            Foreground="#E2BE79"
+                            Style="{StaticResource WindowButtonStyle}"
+                            Click="SelectAllButton_Click"/>
+                </Grid>
+
+                <Border Grid.Row="1"
+                        Padding="10"
+                        Background="#1B1916"
+                        BorderBrush="#51432F"
+                        BorderThickness="1"
+                        CornerRadius="8">
+
+                    <ListBox x:Name="ProductsListBox"
+                             ItemsSource="{Binding TransferItems}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment"
+                                        Value="Stretch"/>
+                                <Setter Property="Margin"
+                                        Value="0,0,0,7"/>
+                                <Setter Property="Padding"
+                                        Value="0"/>
+                                <Setter Property="Background"
+                                        Value="Transparent"/>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="12"
+                                        Background="#24211D"
+                                        BorderBrush="#51432F"
+                                        BorderThickness="1"
+                                        CornerRadius="7">
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="42"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <CheckBox IsChecked="{Binding IsSelected}"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Center"
+                                                  Width="20"
+                                                  Height="20"/>
+
+                                        <StackPanel Grid.Column="1"
+                                                    Margin="8,0,12,0">
+
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#FFFDF8"/>
+
+                                            <TextBlock Text="{Binding InformationText}"
+                                                       Margin="0,4,0,0"
+                                                       FontSize="12"
+                                                       Foreground="#B8B2A8"/>
+
+                                            <TextBlock Text="{Binding NoteText}"
+                                                       Margin="0,3,0,0"
+                                                       FontSize="11"
+                                                       FontStyle="Italic"
+                                                       Foreground="#D2A654"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2"
+                                                    Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+
+                                            <Button Width="34"
+                                                    Height="34"
+                                                    Content="−"
+                                                    Tag="{Binding}"
+                                                    Background="#171512"
+                                                    BorderBrush="#765A32"
+                                                    Foreground="#FFFDF8"
+                                                    Style="{StaticResource WindowButtonStyle}"
+                                                    Click="DecreaseButton_Click"/>
+
+                                            <Border Width="48"
+                                                    Height="34"
+                                                    Margin="6,0"
+                                                    Background="#11100E"
+                                                    BorderBrush="#765A32"
+                                                    BorderThickness="1"
+                                                    CornerRadius="5">
+
+                                                <TextBlock Text="{Binding TransferQuantity}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           FontSize="14"
+                                                           FontWeight="Bold"
+                                                           Foreground="#E2BE79"/>
+                                            </Border>
+
+                                            <Button Width="34"
+                                                    Height="34"
+                                                    Content="+"
+                                                    Tag="{Binding}"
+                                                    Background="#171512"
+                                                    BorderBrush="#765A32"
+                                                    Foreground="#FFFDF8"
+                                                    Style="{StaticResource WindowButtonStyle}"
+                                                    Click="IncreaseButton_Click"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+
+                <Grid Grid.Row="2"
+                      Margin="0,16,0,0">
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock x:Name="SelectedCountText"
+                               VerticalAlignment="Center"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="#E2BE79"
+                               Text="Ürün seçilmedi"/>
+
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal">
+
+                        <Button Width="110"
+                                Height="42"
+                                Margin="0,0,10,0"
+                                Content="İptal"
+                                Background="#24211D"
+                                BorderBrush="#765A32"
+                                Foreground="#FFFDF8"
+                                Style="{StaticResource WindowButtonStyle}"
+                                Click="CancelButton_Click"/>
+
+                        <Button Width="150"
+                                Height="42"
+                                Content="Devam Et"
+                                Background="#D2A654"
+                                BorderBrush="#E2BE79"
+                                Foreground="#17130E"
+                                Style="{StaticResource WindowButtonStyle}"
+                                Click="ContinueButton_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

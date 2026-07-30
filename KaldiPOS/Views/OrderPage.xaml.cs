@@ -1,5 +1,8 @@
 ﻿using KaldiPOS.Data;
 using KaldiPOS.Services;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -19,6 +22,7 @@ namespace KaldiPOS.Views
 
         private readonly List<ProductItem> _allProducts;
         private string _selectedCategory = "Tümü";
+        private Button? _selectedCategoryButton;
         private readonly string _tableName;
 
         public ObservableCollection<OrderItem> OrderItems { get; } = new();
@@ -33,10 +37,6 @@ namespace KaldiPOS.Views
             DataContext = this;
             _tableName = tableName;
 
-            var categories = new List<string> { "Tümü" };
-            categories.AddRange(Database.GetCategories());
-            CategoriesItemsControl.ItemsSource = categories;
-
             _allProducts = Database.GetProducts()
                 .Select(product => new ProductItem(
                     product.Id,
@@ -45,6 +45,8 @@ namespace KaldiPOS.Views
                     product.Price,
                     GetProductImagePath(product.ImagePath)))
                 .ToList();
+
+            LoadCategories();
 
             ProductsItemsControl.ItemsSource = _allProducts;
 
@@ -76,17 +78,187 @@ namespace KaldiPOS.Views
             return Path.Combine(AppContext.BaseDirectory, normalizedPath);
         }
 
-        private void CategoryButton_Click(object sender, RoutedEventArgs e)
+        private bool EnsurePermission(
+    string permissionKey,
+    string operationName)
+        {
+            if (UserSession.HasPermission(permissionKey))
+                return true;
+
+            KaldiMessageWindow.ShowWarning(
+                Window.GetWindow(this),
+                "Yetkisiz İşlem",
+                $"{operationName} işlemi için yetkiniz bulunmuyor.");
+
+            return false;
+        }
+
+        private void LoadCategories()
+        {
+            CategoryPanel.Children.Clear();
+
+            var categories = new List<string> { "Tümü" };
+            categories.AddRange(Database.GetCategories());
+
+            foreach (string category in categories)
+            {
+                Button button = CreateCategoryButton(category);
+                CategoryPanel.Children.Add(button);
+
+                if (category == "Tümü")
+                {
+                    _selectedCategoryButton = button;
+                    SetCategorySelected(button, true);
+                }
+            }
+        }
+
+        private Button CreateCategoryButton(string category)
+        {
+            var contentGrid = new Grid();
+
+            contentGrid.ColumnDefinitions.Add(
+                new ColumnDefinition
+                {
+                    Width = new GridLength(38)
+                });
+
+            contentGrid.ColumnDefinitions.Add(
+                new ColumnDefinition
+                {
+                    Width = new GridLength(1, GridUnitType.Star)
+                });
+
+            var imageBorder = new Border
+            {
+                Width = 34,
+                Height = 34,
+                Background = new SolidColorBrush(
+                    Color.FromRgb(17, 16, 14)),
+                CornerRadius = new CornerRadius(5),
+                ClipToBounds = true,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            string imagePath = GetCategoryImagePath(category);
+
+            if (!string.IsNullOrWhiteSpace(imagePath) &&
+                File.Exists(imagePath))
+            {
+                imageBorder.Child = new Image
+                {
+                    Source = new BitmapImage(
+                        new Uri(imagePath, UriKind.Absolute)),
+                    Stretch = Stretch.UniformToFill
+                };
+            }
+            else
+            {
+                imageBorder.Child = new TextBlock
+                {
+                    Text = category == "Tümü" ? "▦" : "●",
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    FontSize = 17,
+                    Foreground = new SolidColorBrush(
+                        Color.FromRgb(226, 190, 121))
+                };
+            }
+
+            contentGrid.Children.Add(imageBorder);
+
+            var categoryText = new TextBlock
+            {
+                Text = category,
+                Margin = new Thickness(6, 0, 2, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 10.2,
+                FontWeight = FontWeights.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                ToolTip = category
+            };
+
+            Grid.SetColumn(categoryText, 1);
+            contentGrid.Children.Add(categoryText);
+
+            var button = new Button
+            {
+                Content = contentGrid,
+                Tag = category,
+                Width = 118,
+                Height = 46,
+                Margin = new Thickness(3, 2, 3, 2),
+                Padding = new Thickness(4),
+                HorizontalContentAlignment =
+                    HorizontalAlignment.Stretch,
+                Foreground = Brushes.White,
+                Background = new SolidColorBrush(
+                    Color.FromRgb(36, 33, 29)),
+                BorderBrush = new SolidColorBrush(
+                    Color.FromRgb(81, 67, 47)),
+                BorderThickness = new Thickness(1),
+                Cursor = Cursors.Hand
+            };
+
+            button.Click += CategoryButton_Click;
+            return button;
+        }
+
+        private string GetCategoryImagePath(string category)
+        {
+            if (category == "Tümü")
+                return string.Empty;
+
+            return _allProducts
+                .Where(product =>
+                    product.Category == category &&
+                    !string.IsNullOrWhiteSpace(product.ImagePath) &&
+                    File.Exists(product.ImagePath))
+                .Select(product => product.ImagePath)
+                .FirstOrDefault() ?? string.Empty;
+        }
+
+        private void CategoryButton_Click(
+            object sender,
+            RoutedEventArgs e)
         {
             if (sender is not Button button)
                 return;
 
-            _selectedCategory = button.Tag?.ToString() ?? "Tümü";
-            CategoryTitleText.Text = _selectedCategory == "Tümü"
-                ? "Tüm Ürünler"
-                : _selectedCategory;
+            if (_selectedCategoryButton is not null)
+            {
+                SetCategorySelected(
+                    _selectedCategoryButton,
+                    false);
+            }
+
+            _selectedCategoryButton = button;
+            SetCategorySelected(button, true);
+
+            _selectedCategory =
+                button.Tag?.ToString() ?? "Tümü";
+
+            CategoryTitleText.Text =
+                _selectedCategory == "Tümü"
+                    ? "Tüm Ürünler"
+                    : _selectedCategory;
 
             ApplyProductFilter();
+        }
+
+        private static void SetCategorySelected(
+            Button button,
+            bool selected)
+        {
+            button.Background = new SolidColorBrush(
+                selected
+                    ? Color.FromRgb(210, 166, 84)
+                    : Color.FromRgb(36, 33, 29));
+
+            button.Foreground = new SolidColorBrush(
+                selected
+                    ? Color.FromRgb(23, 19, 14)
+                    : Colors.White);
         }
 
         private void ProductSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -125,6 +297,13 @@ namespace KaldiPOS.Views
                 return;
             }
 
+            if (!EnsurePermission(
+        "Order.AddItem",
+        "Adisyona ürün ekleme"))
+            {
+                return;
+            }
+
             OrderItem? existingItem = OrderItems.FirstOrDefault(
                 item => item.ProductId == product.Id);
 
@@ -144,9 +323,19 @@ namespace KaldiPOS.Views
             ScrollOrderToLastItem();
         }
 
-        private void IncreaseButton_Click(object sender, RoutedEventArgs e)
+        private void IncreaseButton_Click(
+            object sender,
+            RoutedEventArgs e)
         {
-            if (sender is Button button && button.Tag is OrderItem item)
+            if (!EnsurePermission(
+                    "Order.IncreaseQuantity",
+                    "Ürün miktarını artırma"))
+            {
+                return;
+            }
+
+            if (sender is Button button &&
+                button.Tag is OrderItem item)
             {
                 item.Quantity++;
                 UpdateTotals();
@@ -154,15 +343,38 @@ namespace KaldiPOS.Views
             }
         }
 
-        private void DecreaseButton_Click(object sender, RoutedEventArgs e)
+        private void DecreaseButton_Click(
+            object sender,
+            RoutedEventArgs e)
         {
-            if (sender is not Button button || button.Tag is not OrderItem item)
+            if (sender is not Button button ||
+                button.Tag is not OrderItem item)
+            {
                 return;
+            }
 
             if (item.Quantity > 1)
+            {
+                if (!EnsurePermission(
+                        "Order.DecreaseQuantity",
+                        "Ürün miktarını azaltma"))
+                {
+                    return;
+                }
+
                 item.Quantity--;
+            }
             else
+            {
+                if (!EnsurePermission(
+                        "Order.RemoveItem",
+                        "Ürünü adisyondan kaldırma"))
+                {
+                    return;
+                }
+
                 OrderItems.Remove(item);
+            }
 
             UpdateTotals();
         }
@@ -171,6 +383,13 @@ namespace KaldiPOS.Views
         {
             if (sender is not Button button || button.Tag is not OrderItem item)
                 return;
+
+            if (!EnsurePermission(
+        "Order.Note",
+        "Sipariş notu ekleme"))
+            {
+                return;
+            }
 
             var noteWindow = new OrderNoteWindow(item.Name, item.Note)
             {
@@ -185,6 +404,13 @@ namespace KaldiPOS.Views
 
         private void ClearOrderButton_Click(object sender, RoutedEventArgs e)
         {
+            if (!EnsurePermission(
+        "Order.RemoveItem",
+        "Adisyonu temizleme"))
+            {
+                return;
+            }
+
             if (OrderItems.Count == 0)
                 return;
 
@@ -263,8 +489,319 @@ namespace KaldiPOS.Views
             BackRequested?.Invoke(this, EventArgs.Empty);
         }
 
+        private void TransferTableButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            if (!EnsurePermission(
+                    "Order.Transfer",
+                    "Masa aktarma"))
+            {
+                return;
+            }
+
+            if (OrderItems.Count == 0)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Boş Adisyon",
+                    "Aktarılacak bir adisyon bulunmuyor.");
+
+                return;
+            }
+
+            Database.SaveOpenOrder(
+                _tableName,
+                OrderItems.Select(item => new SavedOrderItem(
+                    item.ProductId,
+                    item.Name,
+                    item.Quantity,
+                    item.Price,
+                    item.SentQuantity,
+                    item.Note)));
+
+            while (true)
+            {
+                var transferWindow =
+                    new TableTransferWindow(_tableName)
+                    {
+                        Owner = Window.GetWindow(this)
+                    };
+
+                if (transferWindow.ShowDialog() != true ||
+                    string.IsNullOrWhiteSpace(
+                        transferWindow.SelectedTableName))
+                {
+                    return;
+                }
+
+                string targetTableName =
+                    transferWindow.SelectedTableName;
+
+                bool confirmed = KaldiDialog.ShowQuestion(
+                    Window.GetWindow(this),
+                    "Masayı Aktar",
+                    $"{_tableName} masasındaki adisyon " +
+                    $"{targetTableName} masasına aktarılsın mı?");
+
+                if (!confirmed)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    Database.TransferOpenOrder(
+                        _tableName,
+                        targetTableName);
+
+                    KaldiToastWindow.ShowSuccess(
+                        Window.GetWindow(this),
+                        $"Adisyon {targetTableName} masasına aktarıldı.");
+
+                    BackRequested?.Invoke(
+                        this,
+                        EventArgs.Empty);
+
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    KaldiMessageWindow.ShowWarning(
+                        Window.GetWindow(this),
+                        "Masa Aktarılamadı",
+                        exception.Message);
+
+                    return;
+                }
+            }
+        }
+
+        private void TransferProductButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            if (!EnsurePermission(
+                    "Order.Transfer",
+                    "Ürün aktarma"))
+            {
+                return;
+            }
+
+            if (OrderItems.Count == 0)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Boş Adisyon",
+                    "Aktarılacak ürün bulunmuyor.");
+
+                return;
+            }
+
+            Database.SaveOpenOrder(
+                _tableName,
+                OrderItems.Select(item => new SavedOrderItem(
+                    item.ProductId,
+                    item.Name,
+                    item.Quantity,
+                    item.Price,
+                    item.SentQuantity,
+                    item.Note)));
+
+            var productTransferWindow =
+                new ProductTransferWindow(OrderItems)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+
+            if (productTransferWindow.ShowDialog() != true)
+                return;
+
+            if (productTransferWindow.SelectedItems.Count == 0)
+                return;
+
+            while (true)
+            {
+                var tableTransferWindow =
+                    new TableTransferWindow(
+                        _tableName,
+                        true)
+                    {
+                        Owner = Window.GetWindow(this)
+                    };
+
+                if (tableTransferWindow.ShowDialog() != true ||
+                    string.IsNullOrWhiteSpace(
+                        tableTransferWindow.SelectedTableName))
+                {
+                    return;
+                }
+
+                string targetTable =
+                    tableTransferWindow.SelectedTableName;
+
+                bool confirmed =
+                    KaldiDialog.ShowQuestion(
+                        Window.GetWindow(this),
+                        "Ürün Aktar",
+                        $"{_tableName} masasındaki seçilen ürünler " +
+                        $"{targetTable} masasına aktarılsın mı?");
+
+                if (!confirmed)
+                    continue;
+
+                try
+                {
+                    Database.TransferProducts(
+                        _tableName,
+                        targetTable,
+                        productTransferWindow.SelectedItems
+                            .Select(item =>
+                                new SavedOrderItem(
+                                    item.ProductId,
+                                    item.Name,
+                                    item.TransferQuantity,
+                                    item.UnitPrice,
+                                    item.TransferQuantity,
+                                    item.Note)));
+
+                    KaldiToastWindow.ShowSuccess(
+                        Window.GetWindow(this),
+                        "Ürünler başarıyla aktarıldı.");
+
+                    BackRequested?.Invoke(
+                        this,
+                        EventArgs.Empty);
+
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    KaldiMessageWindow.ShowWarning(
+                        Window.GetWindow(this),
+                        "Ürün Aktarılamadı",
+                        ex.Message);
+
+                    return;
+                }
+            }
+        }
+
+        private void MergeTableButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            if (!EnsurePermission(
+                    "Order.Transfer",
+                    "Masa birleştirme"))
+            {
+                return;
+            }
+
+            if (OrderItems.Count == 0)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Boş Adisyon",
+                    "Birleştirilecek bir adisyon bulunmuyor.");
+
+                return;
+            }
+
+            Database.SaveOpenOrder(
+                _tableName,
+                OrderItems.Select(item => new SavedOrderItem(
+                    item.ProductId,
+                    item.Name,
+                    item.Quantity,
+                    item.Price,
+                    item.SentQuantity,
+                    item.Note)));
+
+            while (true)
+            {
+                var tableWindow = new TableTransferWindow(
+                    _tableName,
+                    true,
+                    true)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+
+                if (tableWindow.ShowDialog() != true ||
+                    string.IsNullOrWhiteSpace(
+                        tableWindow.SelectedTableName))
+                {
+                    return;
+                }
+
+                string targetTable =
+                    tableWindow.SelectedTableName;
+
+                bool confirmed = KaldiDialog.ShowQuestion(
+                    Window.GetWindow(this),
+                    "Masaları Birleştir",
+                    $"{_tableName} masasındaki tüm adisyon " +
+                    $"{targetTable} masasıyla birleştirilsin mi?");
+
+                if (!confirmed)
+                    continue;
+
+                try
+                {
+                    Database.TransferProducts(
+                        _tableName,
+                        targetTable,
+                        OrderItems.Select(item =>
+                            new SavedOrderItem(
+                                item.ProductId,
+                                item.Name,
+                                item.Quantity,
+                                item.Price,
+                                item.SentQuantity,
+                                item.Note)));
+
+                    KaldiToastWindow.ShowSuccess(
+                        Window.GetWindow(this),
+                        $"{_tableName} ve {targetTable} masaları birleştirildi.");
+
+                    BackRequested?.Invoke(
+                        this,
+                        EventArgs.Empty);
+
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    KaldiMessageWindow.ShowWarning(
+                        Window.GetWindow(this),
+                        "Masalar Birleştirilemedi",
+                        exception.Message);
+
+                    return;
+                }
+            }
+        }
+
         private void PaymentButton_Click(object sender, RoutedEventArgs e)
         {
+
+            bool canTakePayment =
+    UserSession.HasPermission("Payment.Cash") ||
+    UserSession.HasPermission("Payment.Card") ||
+    UserSession.HasPermission("Payment.Mixed") ||
+    UserSession.HasPermission("Payment.Close");
+
+            if (!canTakePayment)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Yetkisiz İşlem",
+                    "Ödeme alma işlemi için yetkiniz bulunmuyor.");
+
+                return;
+            }
+
             if (OrderItems.Count == 0)
             {
                 KaldiMessageWindow.ShowWarning(

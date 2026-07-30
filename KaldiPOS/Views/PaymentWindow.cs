@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using KaldiPOS.Services;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
@@ -108,6 +109,47 @@ namespace KaldiPOS.Views
 
             button.Click += (_, _) =>
             {
+
+                if (paymentType == "Nakit" &&
+    !UserSession.HasPermission("Payment.Cash"))
+                {
+                    KaldiMessageWindow.ShowWarning(
+                        this,
+                        "Yetkisiz İşlem",
+                        "Nakit ödeme alma yetkiniz bulunmuyor.");
+                    return;
+                }
+
+                if (paymentType == "Kart" &&
+                    !UserSession.HasPermission("Payment.Card"))
+                {
+                    KaldiMessageWindow.ShowWarning(
+                        this,
+                        "Yetkisiz İşlem",
+                        "Kart ile ödeme alma yetkiniz bulunmuyor.");
+                    return;
+                }
+
+                if (paymentType == "Parçalı Ödeme" &&
+                    !UserSession.HasPermission("Payment.Mixed"))
+                {
+                    KaldiMessageWindow.ShowWarning(
+                        this,
+                        "Yetkisiz İşlem",
+                        "Parçalı ödeme alma yetkiniz bulunmuyor.");
+                    return;
+                }
+
+                if (paymentType == "Ürün Seçerek Ödeme" &&
+                    !UserSession.HasPermission("Payment.Mixed"))
+                {
+                    KaldiMessageWindow.ShowWarning(
+                        this,
+                        "Yetkisiz İşlem",
+                        "Ürün seçerek ödeme alma yetkiniz bulunmuyor.");
+                    return;
+                }
+
                 if (paymentType == "Nakit")
                 {
                     var cashWindow = new CashPaymentWindow(_totalAmount)
