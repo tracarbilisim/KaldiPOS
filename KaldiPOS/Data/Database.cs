@@ -126,6 +126,36 @@ CREATE TABLE IF NOT EXISTS Users
 CREATE INDEX IF NOT EXISTS IX_Users_IsActive
 ON Users(IsActive);
 
+CREATE TABLE IF NOT EXISTS Permissions
+(
+    PermissionKey TEXT PRIMARY KEY,
+    PermissionName TEXT NOT NULL,
+    Category TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS UserPermissions
+(
+    UserId INTEGER NOT NULL,
+    PermissionKey TEXT NOT NULL,
+    IsAllowed INTEGER NOT NULL DEFAULT 0,
+
+    PRIMARY KEY(UserId, PermissionKey),
+
+    FOREIGN KEY(UserId)
+        REFERENCES Users(Id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY(PermissionKey)
+        REFERENCES Permissions(PermissionKey)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS IX_UserPermissions_UserId
+ON UserPermissions(UserId);
+
+CREATE INDEX IF NOT EXISTS IX_UserPermissions_PermissionKey
+ON UserPermissions(PermissionKey);
+
 CREATE TABLE IF NOT EXISTS AppMetadata
 (
     Key TEXT PRIMARY KEY,
@@ -148,6 +178,7 @@ CREATE TABLE IF NOT EXISTS AppMetadata
         BackfillOrderBusinessDates(connection);
         EnsureActiveBusinessDate(connection);
         SeedDefaultAdmin(connection);
+        SeedPermissions(connection);
 
         SeedTables(connection);
         ImportKaldiMenu(connection);
@@ -1726,6 +1757,129 @@ ORDER BY IsActive DESC, FullName COLLATE NOCASE;";
         return users;
     }
 
+    public static List<PermissionRecord> GetPermissions()
+    {
+        var permissions = new List<PermissionRecord>();
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT PermissionKey, PermissionName, Category
+FROM Permissions
+ORDER BY Category, PermissionName COLLATE NOCASE;";
+
+        using var reader = command.ExecuteReader();
+
+        while (reader.Read())
+        {
+            permissions.Add(new PermissionRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                false));
+        }
+
+        return permissions;
+    }
+
+    public static List<PermissionRecord> GetUserPermissions(int userId)
+    {
+        var permissions = new List<PermissionRecord>();
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT
+    p.PermissionKey,
+    p.PermissionName,
+    p.Category,
+    COALESCE(up.IsAllowed, 0)
+FROM Permissions p
+LEFT JOIN UserPermissions up
+    ON up.PermissionKey = p.PermissionKey
+   AND up.UserId = @UserId
+ORDER BY p.Category, p.PermissionName COLLATE NOCASE;";
+
+        command.Parameters.AddWithValue("@UserId", userId);
+
+        using var reader = command.ExecuteReader();
+
+        while (reader.Read())
+        {
+            permissions.Add(new PermissionRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetInt32(3) == 1));
+        }
+
+        return permissions;
+    }
+
+    public static void SaveUserPermissions(
+        int userId,
+        IEnumerable<PermissionRecord> permissions)
+    {
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            using (var deleteCommand = connection.CreateCommand())
+            {
+                deleteCommand.Transaction = transaction;
+                deleteCommand.CommandText = @"
+DELETE FROM UserPermissions
+WHERE UserId = @UserId;";
+
+                deleteCommand.Parameters.AddWithValue("@UserId", userId);
+                deleteCommand.ExecuteNonQuery();
+            }
+
+            foreach (var permission in permissions)
+            {
+                using var insertCommand = connection.CreateCommand();
+                insertCommand.Transaction = transaction;
+                insertCommand.CommandText = @"
+INSERT INTO UserPermissions
+(
+    UserId,
+    PermissionKey,
+    IsAllowed
+)
+VALUES
+(
+    @UserId,
+    @PermissionKey,
+    @IsAllowed
+);";
+
+                insertCommand.Parameters.AddWithValue("@UserId", userId);
+                insertCommand.Parameters.AddWithValue(
+                    "@PermissionKey",
+                    permission.PermissionKey);
+                insertCommand.Parameters.AddWithValue(
+                    "@IsAllowed",
+                    permission.IsAllowed ? 1 : 0);
+
+                insertCommand.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
     public static UserRecord? VerifyUserPin(string pin)
     {
         if (string.IsNullOrWhiteSpace(pin))
@@ -1968,6 +2122,69 @@ VALUES
         insertCommand.ExecuteNonQuery();
     }
 
+    private static void SeedPermissions(SqliteConnection connection)
+    {
+        (string Key, string Name, string Category)[] permissions =
+        {
+        ("Order.AddItem","Ürün Ekle","Sipariş"),
+        ("Order.RemoveItem","Ürün Sil","Sipariş"),
+        ("Order.IncreaseQuantity","Adet Artır","Sipariş"),
+        ("Order.DecreaseQuantity","Adet Azalt","Sipariş"),
+        ("Order.Note","Sipariş Notu","Sipariş"),
+        ("Order.Treat","İkram","Sipariş"),
+        ("Order.Discount","İndirim","Sipariş"),
+        ("Order.Transfer","Adisyon Taşı","Sipariş"),
+
+        ("Payment.Cash","Nakit Ödeme","Ödeme"),
+        ("Payment.Card","Kart Ödeme","Ödeme"),
+        ("Payment.Mixed","Karma Ödeme","Ödeme"),
+        ("Payment.Refund","İade","Ödeme"),
+        ("Payment.Close","Adisyon Kapat","Ödeme"),
+
+        ("Table.Open","Masa Aç","Masalar"),
+        ("Table.Merge","Masa Birleştir","Masalar"),
+        ("Table.Split","Masa Ayır","Masalar"),
+
+        ("Menu.Products","Ürünler","Menü"),
+        ("Menu.Reports","Raporlar","Menü"),
+        ("Menu.DayEnd","Gün Sonu","Menü"),
+        ("Menu.Settings","Ayarlar","Menü"),
+
+        ("Manage.Users","Kullanıcı Yönetimi","Yönetim"),
+        ("Manage.Products","Ürün Yönetimi","Yönetim"),
+        ("Manage.Categories","Kategori Yönetimi","Yönetim"),
+        ("Manage.Printers","Yazıcı Ayarları","Yönetim"),
+        ("Manage.Backup","Yedekleme","Yönetim")
+    };
+
+        foreach (var permission in permissions)
+        {
+            using SqliteCommand command = connection.CreateCommand();
+
+            command.CommandText =
+            """
+        INSERT OR IGNORE INTO Permissions
+        (
+            PermissionKey,
+            PermissionName,
+            Category
+        )
+        VALUES
+        (
+            @Key,
+            @Name,
+            @Category
+        );
+        """;
+
+            command.Parameters.AddWithValue("@Key", permission.Key);
+            command.Parameters.AddWithValue("@Name", permission.Name);
+            command.Parameters.AddWithValue("@Category", permission.Category);
+
+            command.ExecuteNonQuery();
+        }
+    }
+
     private static void ValidateUserInput(
         string fullName,
         string pin,
@@ -2037,6 +2254,12 @@ public sealed record UserRecord(
     public string StatusText =>
         IsActive ? "Aktif" : "Pasif";
 }
+
+public sealed record PermissionRecord(
+    string PermissionKey,
+    string PermissionName,
+    string Category,
+    bool IsAllowed);
 
 public sealed record ProductRecord(
     int Id,

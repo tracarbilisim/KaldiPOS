@@ -26,6 +26,8 @@ namespace KaldiPOS
         ? "-"
         : $"{UserSession.CurrentUser.FullName} • {UserSession.CurrentUser.Role}";
 
+            ApplyUserPermissions();
+
             _tablesContent = ContentCard.Child;
 
             _clockTimer = new DispatcherTimer
@@ -38,6 +40,43 @@ namespace KaldiPOS
             UpdateClock();
             LoadTables();
             _clockTimer.Start();
+        }
+
+        private void ApplyUserPermissions()
+        {
+            string role = UserSession.CurrentUser?.Role ?? string.Empty;
+
+            bool isManager =
+                string.Equals(
+                    role,
+                    "Yönetici",
+                    StringComparison.OrdinalIgnoreCase);
+
+            bool isCashier =
+                string.Equals(
+                    role,
+                    "Kasiyer",
+                    StringComparison.OrdinalIgnoreCase);
+
+            ProductsMenuButton.Visibility =
+                isManager
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+
+            ReportsMenuButton.Visibility =
+                isManager || isCashier
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+
+            EndOfDayMenuButton.Visibility =
+                isManager
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+
+            SettingsMenuButton.Visibility =
+                isManager
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
         }
 
         private void ClockTimer_Tick(object? sender, EventArgs e)
@@ -268,6 +307,7 @@ namespace KaldiPOS
 
         private void LogoutButton_Click(object sender, RoutedEventArgs e)
         {
+            UserSession.Clear();
             LoginWindow loginWindow = new();
             loginWindow.Show();
 

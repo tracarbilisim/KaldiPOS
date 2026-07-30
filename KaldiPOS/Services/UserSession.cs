@@ -1,22 +1,48 @@
 using KaldiPOS.Data;
 
-namespace KaldiPOS.Services
+namespace KaldiPOS.Services;
+
+public static class UserSession
 {
-    public static class UserSession
+    public static UserRecord? CurrentUser { get; private set; }
+
+    private static readonly HashSet<string> _permissions = new();
+
+    public static bool IsLoggedIn =>
+        CurrentUser is not null;
+
+    public static IReadOnlyCollection<string> CurrentPermissions =>
+        _permissions;
+
+    public static void Start(UserRecord user)
     {
-        public static UserRecord? CurrentUser { get; private set; }
+        CurrentUser = user;
 
-        public static bool IsLoggedIn =>
-            CurrentUser is not null;
+        _permissions.Clear();
 
-        public static void Start(UserRecord user)
+        foreach (var permission in Database.GetUserPermissions(user.Id))
         {
-            CurrentUser = user;
+            if (permission.IsAllowed)
+                _permissions.Add(permission.PermissionKey);
         }
+    }
 
-        public static void Clear()
-        {
-            CurrentUser = null;
-        }
+    public static bool HasPermission(string permissionKey)
+    {
+        if (CurrentUser is null)
+            return false;
+
+        // Yönetici her zaman tam yetkilidir.
+        if (CurrentUser.Role.Equals("Yönetici",
+                StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return _permissions.Contains(permissionKey);
+    }
+
+    public static void Clear()
+    {
+        CurrentUser = null;
+        _permissions.Clear();
     }
 }

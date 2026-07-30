@@ -74,7 +74,8 @@
                         </Grid>
                     </Button>
 
-                    <Button Tag="Ürünler"
+                    <Button x:Name="ProductsMenuButton"
+                            Tag="Ürünler"
                             Click="MenuButton_Click"
                             Style="{StaticResource Button.Secondary}"
                             Margin="0,0,0,8">
@@ -88,7 +89,8 @@
                         </Grid>
                     </Button>
 
-                    <Button Tag="Raporlar"
+                    <Button x:Name="ReportsMenuButton"
+                            Tag="Raporlar"
                             Click="MenuButton_Click"
                             Style="{StaticResource Button.Secondary}"
                             Margin="0,0,0,8">
@@ -102,7 +104,8 @@
                         </Grid>
                     </Button>
 
-                    <Button Tag="Gün Sonu"
+                    <Button x:Name="EndOfDayMenuButton"
+                            Tag="Gün Sonu"
                             Click="MenuButton_Click"
                             Style="{StaticResource Button.Secondary}"
                             Margin="0,0,0,8">
@@ -116,7 +119,8 @@
                         </Grid>
                     </Button>
 
-                    <Button Tag="Ayarlar"
+                    <Button x:Name="SettingsMenuButton"
+                            Tag="Ayarlar"
                             Click="MenuButton_Click"
                             Style="{StaticResource Button.Secondary}">
                         <Grid>

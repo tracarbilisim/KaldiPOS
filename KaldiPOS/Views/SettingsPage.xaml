@@ -262,7 +262,8 @@
 
                 <!-- KULLANICILAR -->
                 <Grid x:Name="UsersPanel"
-                      Visibility="Collapsed">
+      Visibility="Collapsed">
+
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
@@ -275,55 +276,62 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel>
-                            <TextBlock Text="Kullanıcı Yönetimi"
-                                       FontSize="24"
-                                       FontWeight="Bold"
-                                       Foreground="White"/>
+                            <TextBlock Text="Kullanıcı ve Yetki Yönetimi"
+                       FontSize="24"
+                       FontWeight="Bold"
+                       Foreground="White"/>
 
-                            <TextBlock Text="Personel hesaplarını, PIN kodlarını ve rollerini yönetin"
-                                       Margin="0,5,0,0"
-                                       Foreground="#AFA89D"/>
+                            <TextBlock Text="Personel hesaplarını, rollerini ve işlem yetkilerini yönetin"
+                       Margin="0,5,0,0"
+                       Foreground="#AFA89D"/>
                         </StackPanel>
 
                         <Button Grid.Column="1"
-                                Content="+ Yeni Kullanıcı"
-                                Width="150"
-                                Height="42"
-                                Click="NewUserButton_Click"
-                                Background="#D4A64F"
-                                Foreground="#171512"
-                                BorderThickness="0"
-                                FontWeight="Bold"
-                                Cursor="Hand"/>
+                Content="+ Yeni Kullanıcı"
+                Width="150"
+                Height="42"
+                Click="NewUserButton_Click"
+                Background="#D4A64F"
+                Foreground="#171512"
+                BorderThickness="0"
+                FontWeight="Bold"
+                Cursor="Hand"/>
                     </Grid>
 
-                    <Grid Grid.Row="1" Margin="0,24,0,0">
+                    <Grid Grid.Row="1"
+          Margin="0,24,0,0">
+
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="22"/>
-                            <ColumnDefinition Width="330"/>
+                            <ColumnDefinition Width="1.15*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="300"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="1.25*"/>
                         </Grid.ColumnDefinitions>
 
+                        <!-- KULLANICI LİSTESİ -->
                         <Border Padding="1"
-                                CornerRadius="10"
-                                Background="#765A32">
+                CornerRadius="10"
+                Background="#765A32">
+
                             <DataGrid x:Name="UsersDataGrid"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      CanUserAddRows="False"
-                                      CanUserDeleteRows="False"
-                                      HeadersVisibility="Column"
-                                      GridLinesVisibility="Horizontal"
-                                      RowHeaderWidth="0"
-                                      SelectionMode="Single"
-                                      SelectionChanged="UsersDataGrid_SelectionChanged"
-                                      Background="#211E1A"
-                                      Foreground="White"
-                                      BorderThickness="0"
-                                      RowBackground="#211E1A"
-                                      AlternatingRowBackground="#29251F"
-                                      HorizontalGridLinesBrush="#3C342A"
-                                      VerticalGridLinesBrush="#3C342A">
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      RowHeaderWidth="0"
+                      SelectionMode="Single"
+                      SelectionChanged="UsersDataGrid_SelectionChanged"
+                      Background="#211E1A"
+                      Foreground="White"
+                      BorderThickness="0"
+                      RowBackground="#211E1A"
+                      AlternatingRowBackground="#29251F"
+                      HorizontalGridLinesBrush="#3C342A"
+                      VerticalGridLinesBrush="#3C342A">
+
                                 <DataGrid.Resources>
                                     <Style TargetType="DataGridColumnHeader">
                                         <Setter Property="Height" Value="42"/>
@@ -336,9 +344,12 @@
 
                                     <Style TargetType="DataGridCell">
                                         <Setter Property="Padding" Value="12,10"/>
-                                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                        <Setter Property="BorderBrush" Value="#3C342A"/>
-                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="BorderThickness"
+                                Value="0,0,0,1"/>
+                                        <Setter Property="BorderBrush"
+                                Value="#3C342A"/>
+                                        <Setter Property="Foreground"
+                                Value="White"/>
                                     </Style>
 
                                     <Style TargetType="DataGridRow">
@@ -348,64 +359,67 @@
 
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Kullanıcı"
-                                                        Binding="{Binding FullName}"
-                                                        Width="*"/>
+                                        Binding="{Binding FullName}"
+                                        Width="*"/>
 
                                     <DataGridTextColumn Header="Rol"
-                                                        Binding="{Binding Role}"
-                                                        Width="120"/>
+                                        Binding="{Binding Role}"
+                                        Width="95"/>
 
                                     <DataGridTextColumn Header="Durum"
-                                                        Binding="{Binding StatusText}"
-                                                        Width="90"/>
+                                        Binding="{Binding StatusText}"
+                                        Width="80"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Border>
 
+                        <!-- KULLANICI FORMU -->
                         <Border Grid.Column="2"
-                                Padding="20"
-                                CornerRadius="10"
-                                Background="#29251F"
-                                BorderBrush="#765A32"
-                                BorderThickness="1">
+                Padding="18"
+                CornerRadius="10"
+                Background="#29251F"
+                BorderBrush="#765A32"
+                BorderThickness="1">
+
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
                                     <TextBlock x:Name="UserFormTitleText"
-                                               Text="Yeni Kullanıcı"
-                                               FontSize="19"
-                                               FontWeight="Bold"
-                                               Foreground="#D4A64F"/>
+                               Text="Yeni Kullanıcı"
+                               FontSize="19"
+                               FontWeight="Bold"
+                               Foreground="#D4A64F"/>
 
                                     <TextBlock Text="Ad Soyad"
-                                               Margin="0,22,0,6"
-                                               Style="{StaticResource FieldLabel}"/>
+                               Margin="0,22,0,6"
+                               Style="{StaticResource FieldLabel}"/>
 
                                     <TextBox x:Name="UserFullNameTextBox"
-                                               Style="{StaticResource TextBox.Kaldi}"
-                                               MaxLength="80"/>
+                             Style="{StaticResource TextBox.Kaldi}"
+                             MaxLength="80"/>
 
                                     <TextBlock Text="4 Haneli PIN"
-                                               Margin="0,18,0,6"
-                                               Style="{StaticResource FieldLabel}"/>
+                               Margin="0,18,0,6"
+                               Style="{StaticResource FieldLabel}"/>
 
                                     <PasswordBox x:Name="UserPinPasswordBox"
-                                               Style="{StaticResource PasswordBox.Kaldi}"
-                                               MaxLength="4"
-                                               PreviewTextInput="UserPinPasswordBox_PreviewTextInput"/>
+                                 Style="{StaticResource PasswordBox.Kaldi}"
+                                 MaxLength="4"
+                                 PreviewTextInput=
+                                 "UserPinPasswordBox_PreviewTextInput"/>
 
-                                    <TextBlock Text="Düzenlemede PIN'i değiştirmeyecekseniz boş bırakın."
-                                               Margin="0,6,0,0"
-                                               TextWrapping="Wrap"
-                                               FontSize="12"
-                                               Foreground="#918A80"/>
+                                    <TextBlock Text="Düzenlemede PIN değişmeyecekse boş bırakın."
+                               Margin="0,6,0,0"
+                               TextWrapping="Wrap"
+                               FontSize="12"
+                               Foreground="#918A80"/>
 
                                     <TextBlock Text="Rol"
-                                               Margin="0,18,0,6"
-                                               Style="{StaticResource FieldLabel}"/>
+                               Margin="0,18,0,6"
+                               Style="{StaticResource FieldLabel}"/>
 
                                     <ComboBox x:Name="UserRoleComboBox"
-          Style="{StaticResource ComboBox.Kaldi}"
-          SelectedIndex="2">
+                              Style="{StaticResource ComboBox.Kaldi}"
+                              SelectedIndex="2">
 
                                         <ComboBoxItem Content="Yönetici"/>
                                         <ComboBoxItem Content="Kasiyer"/>
@@ -413,40 +427,268 @@
                                     </ComboBox>
 
                                     <Button x:Name="SaveUserButton"
-                                            Content="Kullanıcıyı Kaydet"
-                                            Height="44"
-                                            Margin="0,24,0,0"
-                                            Click="SaveUserButton_Click"
-                                            Background="#D4A64F"
-                                            Foreground="#171512"
-                                            BorderThickness="0"
-                                            FontWeight="Bold"
-                                            Cursor="Hand"/>
+                            Content="Kullanıcıyı Kaydet"
+                            Height="44"
+                            Margin="0,24,0,0"
+                            Click="SaveUserButton_Click"
+                            Background="#D4A64F"
+                            Foreground="#171512"
+                            BorderThickness="0"
+                            FontWeight="Bold"
+                            Cursor="Hand"/>
 
                                     <Button x:Name="ToggleUserStatusButton"
-                                            Content="Kullanıcıyı Pasifleştir"
-                                            Height="42"
-                                            Margin="0,10,0,0"
-                                            Visibility="Collapsed"
-                                            Click="ToggleUserStatusButton_Click"
-                                            Background="#7D3C3C"
-                                            Foreground="White"
-                                            BorderThickness="0"
-                                            FontWeight="SemiBold"
-                                            Cursor="Hand"/>
+                            Content="Kullanıcıyı Pasifleştir"
+                            Height="42"
+                            Margin="0,10,0,0"
+                            Visibility="Collapsed"
+                            Click="ToggleUserStatusButton_Click"
+                            Background="#7D3C3C"
+                            Foreground="White"
+                            BorderThickness="0"
+                            FontWeight="SemiBold"
+                            Cursor="Hand"/>
 
                                     <Button Content="Formu Temizle"
-                                            Height="40"
-                                            Margin="0,10,0,0"
-                                            Click="NewUserButton_Click"
-                                            Background="#3A342D"
-                                            Foreground="White"
-                                            BorderBrush="#765A32"
-                                            BorderThickness="1"
-                                            FontWeight="SemiBold"
-                                            Cursor="Hand"/>
+                            Height="40"
+                            Margin="0,10,0,0"
+                            Click="NewUserButton_Click"
+                            Background="#3A342D"
+                            Foreground="White"
+                            BorderBrush="#765A32"
+                            BorderThickness="1"
+                            FontWeight="SemiBold"
+                            Cursor="Hand"/>
                                 </StackPanel>
                             </ScrollViewer>
+                        </Border>
+
+                        <!-- YETKİLER -->
+                        <Border Grid.Column="4"
+                Padding="18"
+                CornerRadius="10"
+                Background="#29251F"
+                BorderBrush="#765A32"
+                BorderThickness="1">
+
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Kullanıcı Yetkileri"
+                               FontSize="19"
+                               FontWeight="Bold"
+                               Foreground="#D4A64F"/>
+
+                                    <TextBlock x:Name="PermissionInfoText"
+                               Text="Yetkileri düzenlemek için listeden kullanıcı seçin."
+                               Margin="0,5,0,12"
+                               TextWrapping="Wrap"
+                               Foreground="#AFA89D"/>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Button Content="Tümünü Seç"
+                                Height="34"
+                                Click="SelectAllPermissionsButton_Click"
+                                Background="#3A342D"
+                                Foreground="White"
+                                BorderBrush="#765A32"
+                                BorderThickness="1"
+                                Cursor="Hand"/>
+
+                                        <Button Grid.Column="2"
+                                Content="Tümünü Kaldır"
+                                Height="34"
+                                Click="ClearAllPermissionsButton_Click"
+                                Background="#3A342D"
+                                Foreground="White"
+                                BorderBrush="#765A32"
+                                BorderThickness="1"
+                                Cursor="Hand"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <ScrollViewer Grid.Row="1"
+                              Margin="0,14,0,14"
+                              VerticalScrollBarVisibility="Auto">
+
+                                    <StackPanel x:Name="PermissionsPanel"
+                                IsEnabled="False">
+
+                                        <TextBlock Text="SİPARİŞ İŞLEMLERİ"
+                                   Margin="0,0,0,7"
+                                   FontWeight="Bold"
+                                   Foreground="#D4A64F"/>
+
+                                        <CheckBox Content="Ürün ekleme"
+                                  Tag="Order.AddItem"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Ürün silme"
+                                  Tag="Order.RemoveItem"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Ürün adedini artırma"
+                                  Tag="Order.IncreaseQuantity"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Ürün adedini azaltma"
+                                  Tag="Order.DecreaseQuantity"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Sipariş notu ekleme"
+                                  Tag="Order.Note"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="İkram yapma"
+                                  Tag="Order.Treat"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="İndirim uygulama"
+                                  Tag="Order.Discount"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Adisyon aktarma"
+                                  Tag="Order.Transfer"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <TextBlock Text="ÖDEME İŞLEMLERİ"
+                                   Margin="0,18,0,7"
+                                   FontWeight="Bold"
+                                   Foreground="#D4A64F"/>
+
+                                        <CheckBox Content="Nakit ödeme"
+                                  Tag="Payment.Cash"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Kart ödeme"
+                                  Tag="Payment.Card"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Karma ödeme"
+                                  Tag="Payment.Mixed"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Ödeme iadesi"
+                                  Tag="Payment.Refund"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Adisyon kapatma"
+                                  Tag="Payment.Close"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <TextBlock Text="MASA İŞLEMLERİ"
+                                   Margin="0,18,0,7"
+                                   FontWeight="Bold"
+                                   Foreground="#D4A64F"/>
+
+                                        <CheckBox Content="Masa açma"
+                                  Tag="Table.Open"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Masa birleştirme"
+                                  Tag="Table.Merge"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Masa ayırma"
+                                  Tag="Table.Split"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <TextBlock Text="MENÜ ERİŞİMLERİ"
+                                   Margin="0,18,0,7"
+                                   FontWeight="Bold"
+                                   Foreground="#D4A64F"/>
+
+                                        <CheckBox Content="Ürünler menüsü"
+                                  Tag="Menu.Products"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Raporlar menüsü"
+                                  Tag="Menu.Reports"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Gün sonu menüsü"
+                                  Tag="Menu.DayEnd"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Ayarlar menüsü"
+                                  Tag="Menu.Settings"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <TextBlock Text="YÖNETİM YETKİLERİ"
+                                   Margin="0,18,0,7"
+                                   FontWeight="Bold"
+                                   Foreground="#D4A64F"/>
+
+                                        <CheckBox Content="Kullanıcı yönetimi"
+                                  Tag="Manage.Users"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Ürün yönetimi"
+                                  Tag="Manage.Products"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Kategori yönetimi"
+                                  Tag="Manage.Categories"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Yazıcı ayarları"
+                                  Tag="Manage.Printers"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+
+                                        <CheckBox Content="Yedekleme"
+                                  Tag="Manage.Backup"
+                                  Foreground="White"
+                                  Margin="0,5"/>
+                                    </StackPanel>
+                                </ScrollViewer>
+
+                                <Button x:Name="SavePermissionsButton"
+                        Grid.Row="2"
+                        Content="Yetkileri Kaydet"
+                        Height="44"
+                        IsEnabled="False"
+                        Click="SavePermissionsButton_Click"
+                        Background="#D4A64F"
+                        Foreground="#171512"
+                        BorderThickness="0"
+                        FontWeight="Bold"
+                        Cursor="Hand"/>
+                            </Grid>
                         </Border>
                     </Grid>
                 </Grid>

@@ -1,4 +1,5 @@
 ﻿using KaldiPOS.Data;
+using System.Collections.Generic;
 using System;
 using System.IO;
 using System.Linq;
@@ -103,6 +104,14 @@ namespace KaldiPOS.Views
             UserFormTitleText.Text = "Yeni Kullanıcı";
             SaveUserButton.Content = "Kullanıcıyı Kaydet";
             ToggleUserStatusButton.Visibility = Visibility.Collapsed;
+            PermissionInfoText.Text =
+            "Yetkileri düzenlemek için listeden kullanıcı seçin.";
+
+            PermissionsPanel.IsEnabled = false;
+            SavePermissionsButton.IsEnabled = false;
+
+            foreach (CheckBox checkBox in GetPermissionCheckBoxes())
+                checkBox.IsChecked = false;
             UserFullNameTextBox.Focus();
         }
 
@@ -121,6 +130,7 @@ namespace KaldiPOS.Views
             SaveUserButton.Content = "Değişiklikleri Kaydet";
             ToggleUserStatusButton.Visibility = Visibility.Visible;
             UpdateUserStatusButton(user);
+            LoadUserPermissions(user);
         }
 
         private void SelectUserRole(string role)
@@ -238,6 +248,126 @@ namespace KaldiPOS.Views
                         System.Windows.Media.Color.FromRgb(125, 60, 60))
                     : new System.Windows.Media.SolidColorBrush(
                         System.Windows.Media.Color.FromRgb(47, 143, 87));
+        }
+
+        private IEnumerable<CheckBox> GetPermissionCheckBoxes()
+        {
+            return PermissionsPanel.Children
+                .OfType<CheckBox>();
+        }
+
+        private void LoadUserPermissions(UserRecord user)
+        {
+            try
+            {
+                var userPermissions = Database
+                    .GetUserPermissions(user.Id)
+                    .ToDictionary(
+                        permission => permission.PermissionKey,
+                        permission => permission.IsAllowed,
+                        StringComparer.OrdinalIgnoreCase);
+
+                foreach (CheckBox checkBox in GetPermissionCheckBoxes())
+                {
+                    string permissionKey =
+                        checkBox.Tag?.ToString() ?? string.Empty;
+
+                    checkBox.IsChecked =
+                        userPermissions.TryGetValue(
+                            permissionKey,
+                            out bool isAllowed) &&
+                        isAllowed;
+                }
+
+                PermissionInfoText.Text =
+                    $"{user.FullName} kullanıcısının işlem yetkileri";
+
+                PermissionsPanel.IsEnabled = true;
+                SavePermissionsButton.IsEnabled = true;
+            }
+            catch (Exception exception)
+            {
+                PermissionsPanel.IsEnabled = false;
+                SavePermissionsButton.IsEnabled = false;
+
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Kullanıcı Yetkileri",
+                    exception.Message);
+            }
+        }
+
+        private void SelectAllPermissionsButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            if (_selectedUser is null)
+                return;
+
+            foreach (CheckBox checkBox in GetPermissionCheckBoxes())
+                checkBox.IsChecked = true;
+        }
+
+        private void ClearAllPermissionsButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            if (_selectedUser is null)
+                return;
+
+            foreach (CheckBox checkBox in GetPermissionCheckBoxes())
+                checkBox.IsChecked = false;
+        }
+
+        private void SavePermissionsButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            if (_selectedUser is null)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Kullanıcı Yetkileri",
+                    "Önce listeden bir kullanıcı seçin.");
+
+                return;
+            }
+
+            try
+            {
+                var selectedPermissionKeys =
+                    GetPermissionCheckBoxes()
+                        .Where(checkBox => checkBox.IsChecked == true)
+                        .Select(checkBox =>
+                            checkBox.Tag?.ToString() ?? string.Empty)
+                        .Where(permissionKey =>
+                            !string.IsNullOrWhiteSpace(permissionKey))
+                        .ToList();
+
+                var permissions = Database.GetPermissions()
+                    .Select(permission => permission with
+                    {
+                        IsAllowed = selectedPermissionKeys.Contains(
+                            permission.PermissionKey,
+                            StringComparer.OrdinalIgnoreCase)
+                    })
+                    .ToList();
+
+                Database.SaveUserPermissions(
+                    _selectedUser.Id,
+                    permissions);
+
+                KaldiToastWindow.ShowSuccess(
+                    Window.GetWindow(this),
+                    "Kullanıcı yetkileri kaydedildi.");
+            }
+            catch (Exception exception)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Yetkiler Kaydedilemedi",
+                    exception.Message);
+            }
         }
 
         private void UserPinPasswordBox_PreviewTextInput(
