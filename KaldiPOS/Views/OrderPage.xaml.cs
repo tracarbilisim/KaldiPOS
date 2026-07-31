@@ -414,17 +414,27 @@ namespace KaldiPOS.Views
             if (OrderItems.Count == 0)
                 return;
 
-            bool confirmed = KaldiDialog.ShowQuestion(
-                Window.GetWindow(this),
-                "Adisyonu Temizle",
-                "Adisyondaki tüm ürünler silinsin mi?");
+            var cancelWindow = new OrderCancelWindow(_tableName)
+            {
+                Owner = Window.GetWindow(this)
+            };
 
-            if (!confirmed)
+            if (cancelWindow.ShowDialog() != true)
                 return;
+
+            Database.SaveOpenOrder(
+    _tableName,
+    OrderItems.Select(item => new SavedOrderItem(
+        item.ProductId,
+        item.Name,
+        item.Quantity,
+        item.Price,
+        item.SentQuantity,
+        item.Note)));
 
             Database.CancelOpenOrder(
                 _tableName,
-                "Kullanıcı tarafından iptal edildi",
+                cancelWindow.CancelReason,
                 UserSession.CurrentUser.FullName);
 
             OrderItems.Clear();
