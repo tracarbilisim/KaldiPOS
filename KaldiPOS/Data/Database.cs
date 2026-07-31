@@ -172,6 +172,10 @@ CREATE TABLE IF NOT EXISTS AppMetadata
         EnsureColumn(connection, "Orders", "BusinessDate", "TEXT");
         EnsureColumn(connection, "Orders", "PaymentType", "TEXT");
         EnsureColumn(connection, "Orders", "TotalAmount", "REAL NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "Orders", "IsCancelled", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "Orders", "CancelledAt", "TEXT");
+        EnsureColumn(connection, "Orders", "CancelledBy", "TEXT");
+        EnsureColumn(connection, "Orders", "CancelReason", "TEXT");
         EnsureColumn(connection, "OrderItems", "SentQuantity", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, "OrderItems", "Note", "TEXT NOT NULL DEFAULT ''");
 
@@ -1286,6 +1290,82 @@ WHERE Id IN
         transaction.Commit();
     }
 
+    public static void CancelOpenOrder(
+    string tableName,
+    string cancelReason,
+    string cancelledBy)
+    {
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = @"
+UPDATE Orders
+SET
+    Status = 1,
+    ClosedAt = $cancelledAt,
+    IsCancelled = 1,
+    CancelledAt = $cancelledAt,
+    CancelledBy = $cancelledBy,
+    CancelReason = $cancelReason,
+    PaymentType = NULL,
+    TotalAmount = 0
+WHERE Id =
+(
+    SELECT o.Id
+    FROM Orders o
+    INNER JOIN Tables t ON t.Id = o.TableId
+    WHERE t.Name = $tableName
+      AND o.Status = 0
+      AND o.ClosedAt IS NULL
+    ORDER BY o.Id DESC
+    LIMIT 1
+);";
+
+            command.Parameters.AddWithValue(
+                "$cancelledAt",
+                DateTime.Now.ToString("O"));
+
+            command.Parameters.AddWithValue(
+                "$cancelledBy",
+                cancelledBy.Trim());
+
+            command.Parameters.AddWithValue(
+                "$cancelReason",
+                cancelReason.Trim());
+
+            command.Parameters.AddWithValue(
+                "$tableName",
+                tableName);
+
+            if (command.ExecuteNonQuery() == 0)
+            {
+                throw new InvalidOperationException(
+                    "İptal edilecek açık adisyon bulunamadı.");
+            }
+        }
+
+        using (var tableCommand = connection.CreateCommand())
+        {
+            tableCommand.Transaction = transaction;
+            tableCommand.CommandText = @"
+UPDATE Tables
+SET Status = 0
+WHERE Name = $tableName;";
+
+            tableCommand.Parameters.AddWithValue(
+                "$tableName",
+                tableName);
+
+            tableCommand.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
     public static void DeleteOpenOrder(string tableName)
     {
         using var connection = new SqliteConnection(ConnectionString);
@@ -1340,6 +1420,29 @@ WHERE Id IN
         }
 
         transaction.Commit();
+    }
+
+    public static decimal GetOpenOrderPaidTotal(string tableName)
+    {
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT COALESCE(SUM(op.Amount), 0)
+FROM OrderPayments op
+INNER JOIN Orders o ON o.Id = op.OrderId
+INNER JOIN Tables t ON t.Id = o.TableId
+WHERE t.Name = $tableName
+  AND o.Status = 0
+  AND o.ClosedAt IS NULL;";
+
+        command.Parameters.AddWithValue("$tableName", tableName);
+        object? result = command.ExecuteScalar();
+
+        return result is null || result == DBNull.Value
+            ? 0
+            : Convert.ToDecimal(result, CultureInfo.InvariantCulture);
     }
 
     public static void AddOpenOrderPayment(
@@ -2133,6 +2236,7 @@ FROM Orders o
 INNER JOIN Tables t ON t.Id = o.TableId
 WHERE o.Status = 1
   AND o.ClosedAt IS NOT NULL
+  AND COALESCE(o.IsCancelled, 0) = 0
   AND o.BusinessDate = $businessDate
 ORDER BY o.ClosedAt DESC;";
 

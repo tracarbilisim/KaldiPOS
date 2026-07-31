@@ -422,9 +422,19 @@ namespace KaldiPOS.Views
             if (!confirmed)
                 return;
 
-            Database.DeleteOpenOrder(_tableName);
+            Database.CancelOpenOrder(
+                _tableName,
+                "Kullanıcı tarafından iptal edildi",
+                UserSession.CurrentUser.FullName);
+
             OrderItems.Clear();
             UpdateTotals();
+
+            KaldiToastWindow.ShowSuccess(
+                Window.GetWindow(this),
+                "Adisyon iptal edildi.");
+
+            BackRequested?.Invoke(this, EventArgs.Empty);
         }
 
         private void SendOrderButton_Click(object sender, RoutedEventArgs e)
@@ -785,12 +795,11 @@ namespace KaldiPOS.Views
 
         private void PaymentButton_Click(object sender, RoutedEventArgs e)
         {
-
             bool canTakePayment =
-    UserSession.HasPermission("Payment.Cash") ||
-    UserSession.HasPermission("Payment.Card") ||
-    UserSession.HasPermission("Payment.Mixed") ||
-    UserSession.HasPermission("Payment.Close");
+                UserSession.HasPermission("Payment.Cash") ||
+                UserSession.HasPermission("Payment.Card") ||
+                UserSession.HasPermission("Payment.Mixed") ||
+                UserSession.HasPermission("Payment.Close");
 
             if (!canTakePayment)
             {
@@ -798,7 +807,6 @@ namespace KaldiPOS.Views
                     Window.GetWindow(this),
                     "Yetkisiz İşlem",
                     "Ödeme alma işlemi için yetkiniz bulunmuyor.");
-
                 return;
             }
 
@@ -814,24 +822,6 @@ namespace KaldiPOS.Views
             decimal totalAmount = OrderItems.Sum(
                 item => item.Price * item.Quantity);
 
-            var paymentWindow = new PaymentWindow(totalAmount)
-            {
-                Owner = Window.GetWindow(this)
-            };
-
-            if (paymentWindow.ShowDialog() != true ||
-                string.IsNullOrWhiteSpace(paymentWindow.SelectedPaymentType))
-            {
-                return;
-            }
-
-            if (paymentWindow.SelectedPaymentType ==
-                "Ürün Seçerek Ödeme")
-            {
-                TakeProductPayment();
-                return;
-            }
-
             Database.SaveOpenOrder(
                 _tableName,
                 OrderItems.Select(item => new SavedOrderItem(
@@ -842,15 +832,82 @@ namespace KaldiPOS.Views
                     item.SentQuantity,
                     item.Note)));
 
-            Database.CloseOpenOrder(
-                _tableName,
-                paymentWindow.SelectedPaymentType,
-                totalAmount);
+            decimal previouslyPaid =
+                Database.GetOpenOrderPaidTotal(_tableName);
 
-            OrderItems.Clear();
-            UpdateTotals();
+            if (previouslyPaid >= totalAmount - 0.005m)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Ödeme Tamamlanmış",
+                    "Bu adisyonun kalan ödeme tutarı bulunmuyor.");
+                return;
+            }
 
-            BackRequested?.Invoke(this, EventArgs.Empty);
+            var paymentWindow = new PaymentWindow(
+                totalAmount,
+                previouslyPaid)
+            {
+                Owner = Window.GetWindow(this)
+            };
+
+            paymentWindow.ShowDialog();
+
+            if (paymentWindow.ProductPaymentRequested)
+            {
+                TakeProductPayment();
+                return;
+            }
+
+            if (paymentWindow.DialogResult != true)
+                return;
+
+            if (paymentWindow.Payments.Count == 0)
+                return;
+
+            foreach (PaymentEntry payment in paymentWindow.Payments)
+            {
+                Database.AddOpenOrderPayment(
+                    _tableName,
+                    payment.Type,
+                    payment.Amount,
+                    payment.Description);
+            }
+
+            decimal paidTotal = previouslyPaid +
+                paymentWindow.Payments.Sum(payment => payment.Amount);
+
+            if (paidTotal >= totalAmount - 0.005m)
+            {
+                string paymentType =
+                    paymentWindow.Payments
+                        .Select(payment => payment.Type)
+                        .Concat(new[] { previouslyPaid > 0 ? "Önceki Ödeme" : string.Empty })
+                        .Where(type => !string.IsNullOrWhiteSpace(type))
+                        .Distinct()
+                        .Count() == 1
+                            ? paymentWindow.Payments[0].Type
+                            : "Çoklu Ödeme";
+
+                Database.CloseOpenOrder(
+                    _tableName,
+                    paymentType,
+                    totalAmount);
+
+                KaldiToastWindow.ShowSuccess(
+                    Window.GetWindow(this),
+                    $"{totalAmount:N2} ₺ ödeme başarıyla alındı. " +
+                    $"Adisyon {paymentType} olarak kapatıldı.");
+
+                OrderItems.Clear();
+                UpdateTotals();
+                BackRequested?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
+            KaldiToastWindow.ShowSuccess(
+                Window.GetWindow(this),
+                $"Ödeme kaydedildi. Kalan: {totalAmount - paidTotal:N2} ₺");
         }
 
         private void TakeProductPayment()
