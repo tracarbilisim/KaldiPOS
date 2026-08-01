@@ -182,7 +182,8 @@
                                    FontWeight="Bold"
                                    Foreground="White"/>
 
-                        <TextBlock Text="Kapanmış adisyon bilgileri"
+                        <TextBlock x:Name="OrderSubTitleText"
+                                   Text="Kapanmış adisyon bilgileri"
                                    Margin="0,2,0,0"
                                    FontSize="12"
                                    Foreground="#9E968B"/>

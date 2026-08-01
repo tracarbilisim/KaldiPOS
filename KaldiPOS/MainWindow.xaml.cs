@@ -1,5 +1,7 @@
 ﻿using KaldiPOS.Services;
 using System;
+using System.Text.Json;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -21,6 +23,48 @@ namespace KaldiPOS
         private Point _dragStartPoint;
         private bool _isTableDragging;
         private bool _suppressTableClick;
+        private DateTime? _lastAutomaticDayEndDate;
+        private DateTime? _lastAutomaticDayEndWarningDate;
+
+        private AppSettings LoadAppSettings()
+        {
+            try
+            {
+                string settingsDirectory = Path.Combine(
+                    Environment.GetFolderPath(
+                        Environment.SpecialFolder.LocalApplicationData),
+                    "KaldiPOS");
+
+                string settingsPath = Path.Combine(
+                    settingsDirectory,
+                    "settings.json");
+
+                if (!File.Exists(settingsPath))
+                    return new AppSettings();
+
+                string json = File.ReadAllText(settingsPath);
+
+                return JsonSerializer.Deserialize<AppSettings>(json)
+                       ?? new AppSettings();
+            }
+            catch
+            {
+                return new AppSettings();
+            }
+        }
+
+        private sealed class AppSettings
+        {
+            public bool AutomaticDayEndEnabled { get; set; } = true;
+
+            public string AutomaticDayEndTime { get; set; } = "23:55";
+
+            public bool CarryOpenOrdersToNextDay { get; set; } = true;
+
+            public bool DayEndWarningEnabled { get; set; } = true;
+
+            public int DayEndWarningMinutes { get; set; } = 5;
+        }
 
         public MainWindow()
         {
@@ -68,11 +112,154 @@ namespace KaldiPOS
                 UserSession.HasPermission("Menu.Settings")
                     ? Visibility.Visible
                     : Visibility.Collapsed;
+
+            AuditMenuButton.Visibility =
+    UserSession.HasPermission("Menu.Audit")
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+            bool isWaiter =
+    string.Equals(
+        UserSession.CurrentUser?.Role,
+        "Garson",
+        StringComparison.OrdinalIgnoreCase);
+
+            SideMenuBorder.Visibility =
+                isWaiter
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
+
+            MenuColumn.Width =
+                isWaiter
+                    ? new GridLength(0)
+                    : new GridLength(64);
+
+            WaiterNavigationPanel.Visibility =
+                isWaiter
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+
         }
 
-        private void ClockTimer_Tick(object? sender, EventArgs e)
+        private async void ClockTimer_Tick(
+            object? sender,
+            EventArgs e)
         {
             UpdateClock();
+
+            DateTime now = DateTime.Now;
+            AppSettings settings = LoadAppSettings();
+
+            if (!settings.AutomaticDayEndEnabled)
+                return;
+
+            if (!TimeOnly.TryParseExact(
+                    settings.AutomaticDayEndTime,
+                    "HH:mm",
+                    out TimeOnly automaticTime))
+            {
+                automaticTime = new TimeOnly(23, 55);
+            }
+
+            DateTime todayAutomaticTime =
+                now.Date.Add(automaticTime.ToTimeSpan());
+
+            DateTime tomorrowAutomaticTime =
+                todayAutomaticTime.AddDays(1);
+
+            int warningMinutes = Math.Clamp(
+                settings.DayEndWarningMinutes,
+                0,
+                60);
+
+            DateTime todayWarningTime =
+                todayAutomaticTime.AddMinutes(-warningMinutes);
+
+            DateTime tomorrowWarningTime =
+                tomorrowAutomaticTime.AddMinutes(-warningMinutes);
+
+            bool warningMinuteReached =
+                IsSameMinute(now, todayWarningTime) ||
+                IsSameMinute(now, tomorrowWarningTime);
+
+            DateTime warningTargetTime =
+                IsSameMinute(now, todayWarningTime)
+                    ? todayAutomaticTime
+                    : tomorrowAutomaticTime;
+
+            DateTime warningTargetDate =
+                warningTargetTime.Date;
+
+            if (settings.DayEndWarningEnabled &&
+                warningMinutes > 0 &&
+                warningMinuteReached &&
+                _lastAutomaticDayEndWarningDate != warningTargetDate)
+            {
+                _lastAutomaticDayEndWarningDate =
+                    warningTargetDate;
+
+                AutomaticDayEndWarningWindow.ShowCountdown(
+                    this,
+                    warningTargetTime);
+            }
+
+            if (!IsSameMinute(now, todayAutomaticTime))
+                return;
+
+            if (_lastAutomaticDayEndDate == now.Date)
+                return;
+
+            _lastAutomaticDayEndDate = now.Date;
+
+            try
+            {
+                int openTableCount =
+                    Database.GetOpenTableCount();
+
+                AutomaticDayEndWarningWindow.ShowProcessing(
+                    this,
+                    openTableCount);
+
+                await Dispatcher.Yield(
+                    DispatcherPriority.Background);
+
+                bool created =
+                    Database.CreateAutomaticDayEnd();
+
+                if (!created)
+                {
+                    AutomaticDayEndWarningWindow.CloseActive();
+                    return;
+                }
+
+                LoadTables();
+
+                DateTime newBusinessDate =
+                    Database.GetActiveBusinessDate();
+
+                AutomaticDayEndWarningWindow.ShowCompleted(
+                    this,
+                    openTableCount,
+                    newBusinessDate);
+            }
+            catch (Exception exception)
+            {
+                AutomaticDayEndWarningWindow.ShowFailed(
+                    this,
+                    exception.Message);
+
+            }
+        }
+
+        private static bool IsSameMinute(
+    DateTime first,
+    DateTime second)
+        {
+            return first.Year == second.Year &&
+                   first.Month == second.Month &&
+                   first.Day == second.Day &&
+                   first.Hour == second.Hour &&
+                   first.Minute == second.Minute;
         }
 
         private void UpdateClock()
@@ -153,6 +340,49 @@ namespace KaldiPOS
             }
         }
 
+        private void WaiterBackToTablesButton_Click(
+    object sender,
+    RoutedEventArgs e)
+        {
+            OrderPage? orderPage =
+                GetActiveOrderPage();
+
+            if (orderPage is not null &&
+                !orderPage.CanNavigateAway())
+            {
+                return;
+            }
+
+            ShowTables();
+        }
+
+        private void WaiterLogoutButton_Click(
+    object sender,
+    RoutedEventArgs e)
+        {
+            OrderPage? orderPage =
+                GetActiveOrderPage();
+
+            if (orderPage is not null &&
+                !orderPage.CanNavigateAway())
+            {
+                return;
+            }
+
+            LogoutButton_Click(sender, e);
+        }
+
+        private OrderPage? GetActiveOrderPage()
+        {
+            if (ContentCard.Child is Frame frame &&
+                frame.Content is OrderPage orderPage)
+            {
+                return orderPage;
+            }
+
+            return null;
+        }
+
         private void ToggleMenuButton_Click(object sender, RoutedEventArgs e)
         {
             _isMenuExpanded = !_isMenuExpanded;
@@ -169,7 +399,36 @@ namespace KaldiPOS
             ReportsMenuText.Visibility = visibility;
             EndOfDayMenuText.Visibility = visibility;
             SettingsMenuText.Visibility = visibility;
+            AuditMenuText.Visibility = visibility;
             LogoutMenuText.Visibility = visibility;
+        }
+
+        private void SetActiveMainMenuButton(
+    Button activeButton)
+        {
+            Button[] menuButtons =
+            {
+        TablesMenuButton,
+        ProductsMenuButton,
+        ReportsMenuButton,
+        EndOfDayMenuButton,
+        AuditMenuButton,
+        SettingsMenuButton
+    };
+
+            Style primaryStyle =
+                (Style)FindResource("Button.Primary");
+
+            Style secondaryStyle =
+                (Style)FindResource("Button.Secondary");
+
+            foreach (Button menuButton in menuButtons)
+            {
+                menuButton.Style =
+                    ReferenceEquals(menuButton, activeButton)
+                        ? primaryStyle
+                        : secondaryStyle;
+            }
         }
 
         private void MenuButton_Click(object sender, RoutedEventArgs e)
@@ -177,7 +436,15 @@ namespace KaldiPOS
             if (sender is not Button button)
                 return;
 
+            if (ContentCard.Child is Frame activeFrame &&
+                activeFrame.Content is OrderPage activeOrderPage &&
+                !activeOrderPage.CanNavigateAway())
+            {
+                return;
+            }
+
             string pageName = button.Tag?.ToString() ?? "Masalar";
+            SetActiveMainMenuButton(button);
 
             if (pageName == "Masalar")
             {
@@ -209,6 +476,16 @@ namespace KaldiPOS
                     new DayEndPage(),
                     "Gün Sonu",
                     "Günlük kasa kapanış işlemlerini yönetin");
+                return;
+            }
+
+            if (pageName == "Denetim")
+            {
+                ShowPage(
+                    new AuditPage(),
+                    "Denetim",
+                    "İptal edilen adisyonların gizli yönetici kayıtları");
+
                 return;
             }
 
@@ -570,6 +847,9 @@ namespace KaldiPOS
 
         private void ShowTables()
         {
+
+            SetActiveMainMenuButton(TablesMenuButton);
+
             ContentCard.Padding = new Thickness(14);
             ContentCard.Child = _tablesContent;
 
@@ -593,13 +873,34 @@ namespace KaldiPOS
             object sender,
             RoutedEventArgs e)
         {
-            bool confirmed = KaldiDialog.ShowQuestion(
-                this,
-                "Uygulamayı Kapat",
-                "KaldiPOS uygulaması kapatılsın mı?");
+            bool confirmed =
+                KaldiDialog.ShowQuestion(
+                    this,
+                    "Uygulamayı Kapat",
+                    "KaldiPOS uygulaması kapatılsın mı?");
 
-            if (confirmed)
-                Application.Current.Shutdown();
+            if (!confirmed)
+                return;
+
+            OrderPage? orderPage =
+                GetActiveOrderPage();
+
+            if (orderPage is not null &&
+                orderPage.HasUnsentOrders)
+            {
+                bool discardConfirmed =
+                    KaldiDialog.ShowQuestion(
+                        this,
+                        "Gönderilmemiş Siparişler Var",
+                        "Adisyonda henüz gönderilmemiş siparişler bulunuyor.\n\n" +
+                        "Program kapatılırsa bu ürünler kaybolacaktır.\n\n" +
+                        "Siparişleri göndermeden yine de çıkmak istiyor musunuz?");
+
+                if (!discardConfirmed)
+                    return;
+            }
+
+            Application.Current.Shutdown();
         }
 
         private void Window_KeyDown(object sender, KeyEventArgs e)

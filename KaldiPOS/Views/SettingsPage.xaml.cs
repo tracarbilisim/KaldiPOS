@@ -29,19 +29,62 @@ namespace KaldiPOS.Views
             ReloadUsers();
             ResetUserForm();
             ShowPanel("Business");
+            SetActiveSettingsMenuButton(
+            BusinessSettingsMenuButton);
         }
 
         private void MenuButton_Click(
             object sender,
             RoutedEventArgs e)
         {
-            if (sender is Button button)
-                ShowPanel(button.Tag?.ToString() ?? "Business");
+            if (sender is not Button button)
+                return;
+
+            string panelName =
+                button.Tag?.ToString() ?? "Business";
+
+            ShowPanel(panelName);
+            SetActiveSettingsMenuButton(button);
+        }
+
+        private void SetActiveSettingsMenuButton(
+    Button activeButton)
+        {
+            foreach (Button menuButton in
+                     SettingsMenuPanel.Children.OfType<Button>())
+            {
+                bool isActive =
+                    ReferenceEquals(menuButton, activeButton);
+
+                menuButton.Background =
+                    new System.Windows.Media.SolidColorBrush(
+                        isActive
+                            ? System.Windows.Media.Color.FromRgb(
+                                212, 166, 79)
+                            : System.Windows.Media.Color.FromRgb(
+                                33, 30, 26));
+
+                menuButton.Foreground =
+                    new System.Windows.Media.SolidColorBrush(
+                        isActive
+                            ? System.Windows.Media.Color.FromRgb(
+                                23, 19, 14)
+                            : System.Windows.Media.Colors.White);
+
+                menuButton.BorderBrush =
+                    new System.Windows.Media.SolidColorBrush(
+                        isActive
+                            ? System.Windows.Media.Color.FromRgb(
+                                240, 198, 111)
+                            : System.Windows.Media.Color.FromRgb(
+                                118, 90, 50));
+            }
         }
 
         private void ShowPanel(string panelName)
         {
             BusinessPanel.Visibility = Visibility.Collapsed;
+            DayEndSettingsPanel.Visibility = Visibility.Collapsed;
             PrintersPanel.Visibility = Visibility.Collapsed;
             UsersPanel.Visibility = Visibility.Collapsed;
             BackupPanel.Visibility = Visibility.Collapsed;
@@ -49,8 +92,13 @@ namespace KaldiPOS.Views
 
             switch (panelName)
             {
+                case "DayEnd":
+                    DayEndSettingsPanel.Visibility = Visibility.Visible;
+                    break;
+
                 case "Printers":
-                    PrintersPanel.Visibility = Visibility.Visible;
+                    PrintersPanel.Visibility =
+                        Visibility.Visible;
                     break;
 
                 case "Users":
@@ -384,6 +432,11 @@ namespace KaldiPOS.Views
                 if (!File.Exists(SettingsFilePath))
                 {
                     BusinessNameTextBox.Text = "Kaldi Cafe";
+                    AutomaticDayEndCheckBox.IsChecked = true;
+                    AutomaticDayEndTimeTextBox.Text = "23:55";
+                    CarryOpenOrdersCheckBox.IsChecked = true;
+                    DayEndWarningCheckBox.IsChecked = true;
+                    DayEndWarningMinutesTextBox.Text = "5";
                     return;
                 }
 
@@ -409,6 +462,23 @@ namespace KaldiPOS.Views
 
                 CashierPrinterTextBox.Text =
                     settings.CashierPrinter;
+
+                AutomaticDayEndCheckBox.IsChecked =
+                    settings.AutomaticDayEndEnabled;
+
+                AutomaticDayEndTimeTextBox.Text =
+                    string.IsNullOrWhiteSpace(settings.AutomaticDayEndTime)
+                        ? "23:55"
+                        : settings.AutomaticDayEndTime;
+
+                CarryOpenOrdersCheckBox.IsChecked =
+                    settings.CarryOpenOrdersToNextDay;
+
+                DayEndWarningCheckBox.IsChecked =
+                    settings.DayEndWarningEnabled;
+
+                DayEndWarningMinutesTextBox.Text =
+                    settings.DayEndWarningMinutes.ToString();
 
                 LastBackupText.Text =
                     settings.LastBackupAt.HasValue
@@ -436,6 +506,26 @@ namespace KaldiPOS.Views
                 KitchenPrinter = KitchenPrinterTextBox.Text.Trim(),
                 BarPrinter = BarPrinterTextBox.Text.Trim(),
                 CashierPrinter = CashierPrinterTextBox.Text.Trim(),
+
+                AutomaticDayEndEnabled =
+    AutomaticDayEndCheckBox.IsChecked == true,
+
+                AutomaticDayEndTime =
+    AutomaticDayEndTimeTextBox.Text.Trim(),
+
+                CarryOpenOrdersToNextDay =
+    CarryOpenOrdersCheckBox.IsChecked == true,
+
+                DayEndWarningEnabled =
+    DayEndWarningCheckBox.IsChecked == true,
+
+                DayEndWarningMinutes =
+    int.TryParse(
+        DayEndWarningMinutesTextBox.Text.Trim(),
+        out int warningMinutes)
+            ? warningMinutes
+            : 5,
+
                 LastBackupAt = ReadSavedSettings()?.LastBackupAt
             };
         }
@@ -490,6 +580,47 @@ namespace KaldiPOS.Views
             KaldiToastWindow.ShowSuccess(
                 Window.GetWindow(this),
                 "İşletme bilgileri kaydedildi.");
+        }
+
+        private void SaveDayEndSettingsButton_Click(
+    object sender,
+    RoutedEventArgs e)
+        {
+            string timeText =
+                AutomaticDayEndTimeTextBox.Text.Trim();
+
+            if (!TimeOnly.TryParseExact(
+                    timeText,
+                    "HH:mm",
+                    out _))
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Geçersiz Saat",
+                    "Gün sonu saatini 23:55 biçiminde girin.");
+
+                return;
+            }
+
+            if (!int.TryParse(
+                    DayEndWarningMinutesTextBox.Text.Trim(),
+                    out int warningMinutes) ||
+                warningMinutes < 0 ||
+                warningMinutes > 60)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Geçersiz Uyarı Süresi",
+                    "Uyarı süresi 0 ile 60 dakika arasında olmalıdır.");
+
+                return;
+            }
+
+            SaveSettings(ReadCurrentSettings());
+
+            KaldiToastWindow.ShowSuccess(
+                Window.GetWindow(this),
+                "İş günü ayarları kaydedildi.");
         }
 
         private void SavePrintersButton_Click(
@@ -630,5 +761,15 @@ namespace KaldiPOS.Views
             string.Empty;
 
         public DateTime? LastBackupAt { get; set; }
-    }
+        public bool AutomaticDayEndEnabled { get; set; } = true;
+
+        public string AutomaticDayEndTime { get; set; } = "23:55";
+
+        public bool CarryOpenOrdersToNextDay { get; set; } = true;
+
+        public bool DayEndWarningEnabled { get; set; } = true;
+
+        public int DayEndWarningMinutes { get; set; } = 5;
+
+        }
 }

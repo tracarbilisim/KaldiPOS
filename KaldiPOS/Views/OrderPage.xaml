@@ -157,176 +157,254 @@
 
         <!-- ÜRÜN ÇALIŞMA ALANI -->
         <Grid Grid.Column="0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="150"/>
-                <RowDefinition Height="8"/>
-                <RowDefinition Height="38"/>
-                <RowDefinition Height="8"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
 
-            <!-- KATEGORİLER -->
-            <Border Grid.Row="0"
-        Padding="10,7"
-        Background="#171512"
-        BorderBrush="#765A32"
-        BorderThickness="1"
-        CornerRadius="12">
+            <!-- KATEGORİ ANA EKRANI -->
+            <Border x:Name="CategoryHomePanel"
+            Padding="14"
+            Background="#171512"
+            BorderBrush="#765A32"
+            BorderThickness="1"
+            CornerRadius="12">
 
-                <Grid>
-                    <WrapPanel x:Name="CategoryPanel"
-               Orientation="Horizontal"
-               VerticalAlignment="Top"/>
-                </Grid>
-            </Border>
-
-            <!-- ÜRÜN ARAMA -->
-            <Border Grid.Row="2"
-        Background="#171512"
-        BorderBrush="#765A32"
-        BorderThickness="1"
-        CornerRadius="9">
-
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="42"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Text="⌕"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   FontSize="22"
-                   Foreground="#E2BE79"/>
-
-                    <TextBox x:Name="ProductSearchTextBox"
-                 Grid.Column="1"
-                 Padding="0,0,12,0"
-                 VerticalContentAlignment="Center"
-                 Background="Transparent"
-                 BorderThickness="0"
-                 Foreground="#FFFDF8"
-                 CaretBrush="#FFFDF8"
-                 FontSize="13"
-                 ToolTip="Ürün ara"
-                 TextChanged="ProductSearchTextBox_TextChanged"/>
-                </Grid>
-            </Border>
-
-            <!-- ÜRÜNLER -->
-            <Border Grid.Row="4"
-                    Padding="12"
-                    Background="#171512"
-                    BorderBrush="#765A32"
-                    BorderThickness="1"
-                    CornerRadius="12">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="38"/>
+                        <RowDefinition Height="62"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock x:Name="CategoryTitleText"
-                               Text="Tüm Ürünler"
-                               Margin="4,0,0,4"
-                               VerticalAlignment="Center"
-                               FontSize="18"
-                               FontWeight="SemiBold"
-                               Foreground="#FFFDF8"/>
+                    <Grid Margin="4,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="170"/>
+                        </Grid.ColumnDefinitions>
 
-                    <ScrollViewer Grid.Row="1"
-              VerticalScrollBarVisibility="Auto"
-              HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <TextBlock Text="Ürün Kategorileri"
+                   FontSize="22"
+                   FontWeight="Bold"
+                   Foreground="#FFFDF8"/>
 
-                        <ScrollViewer.Resources>
-                            <Style TargetType="ScrollBar"
-               BasedOn="{StaticResource OrderVerticalScrollBar}"/>
-                        </ScrollViewer.Resources>
+                            <TextBlock Text="Ürünleri görüntülemek için bir kategoriye dokunun"
+                   Margin="0,4,0,0"
+                   FontSize="13"
+                   Foreground="#AFA89D"/>
+                        </StackPanel>
+
+                        <Button Grid.Column="1"
+            Content="←  MASALARA DÖN"
+            Height="42"
+            VerticalAlignment="Center"
+            Background="#D0A354"
+            BorderBrush="#E2B85F"
+            Foreground="#18140E"
+            BorderThickness="1"
+            FontSize="12"
+            FontWeight="Bold"
+            Cursor="Hand"
+            Click="BackButton_Click"/>
+                    </Grid>
+
+                    <WrapPanel x:Name="CategoryPanel"
+           Grid.Row="1"
+           HorizontalAlignment="Left"
+           VerticalAlignment="Top"/>
+                </Grid>
+            </Border>
+
+            <!-- SEÇİLEN KATEGORİNİN ÜRÜNLERİ -->
+            <Grid x:Name="CategoryProductsPanel"
+          Visibility="Collapsed">
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="54"/>
+                    <RowDefinition Height="8"/>
+                    <RowDefinition Height="44"/>
+                    <RowDefinition Height="8"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- KATEGORİ BAŞLIĞI -->
+                <Border Grid.Row="0"
+                Padding="8,6"
+                Background="#171512"
+                BorderBrush="#765A32"
+                BorderThickness="1"
+                CornerRadius="10">
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="170"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Button Content="←  KATEGORİLER"
+                        Height="40"
+                        Background="#2A251F"
+                        BorderBrush="#8D6A36"
+                        Foreground="#E2BE79"
+                        FontSize="12"
+                        FontWeight="Bold"
+                        Cursor="Hand"
+                        Click="CategoriesBackButton_Click"/>
+
+                        <TextBlock x:Name="CategoryTitleText"
+                           Grid.Column="1"
+                           Margin="18,0,0,0"
+                           VerticalAlignment="Center"
+                           FontSize="21"
+                           FontWeight="Bold"
+                           Foreground="#FFFDF8"/>
+
+                        <Button Grid.Column="2"
+        Content="←  MASALARA DÖN"
+        Height="40"
+        Background="#D0A354"
+        BorderBrush="#E2B85F"
+        Foreground="#18140E"
+        BorderThickness="1"
+        FontSize="12"
+        FontWeight="Bold"
+        Cursor="Hand"
+        Click="BackButton_Click"/>
+                        
+                    </Grid>
+                </Border>
+
+                <!-- ÜRÜN ARAMA -->
+                <Border Grid.Row="2"
+                Background="#171512"
+                BorderBrush="#765A32"
+                BorderThickness="1"
+                CornerRadius="9">
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="46"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="⌕"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontSize="23"
+                           Foreground="#E2BE79"/>
+
+                        <TextBox x:Name="ProductSearchTextBox"
+                         Grid.Column="1"
+                         Padding="0,0,12,0"
+                         VerticalContentAlignment="Center"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Foreground="#FFFDF8"
+                         CaretBrush="#FFFDF8"
+                         FontSize="14"
+                         ToolTip="Seçili kategoride ürün ara"
+                         TextChanged="ProductSearchTextBox_TextChanged"/>
+                    </Grid>
+                </Border>
+
+                <!-- ÜRÜN KARTLARI -->
+                
+        <Border Grid.Row="4"
+                Padding="10"
+                Background="#171512"
+                BorderBrush="#765A32"
+                BorderThickness="1"
+                CornerRadius="12">
+
                         <ItemsControl x:Name="ProductsItemsControl">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel/>
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
+
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Width="136"
-                                            Height="156"
-                                            Margin="4"
-                                            Padding="0"
-                                            Tag="{Binding}"
-                                            Background="#211E1A"
-                                            BorderBrush="#765A32"
-                                            BorderThickness="1"
-                                            Cursor="Hand"
-                                            Click="ProductButton_Click">
+                                <Button Width="140"
+                                        Height="118"
+                                        Margin="4"
+                                        Padding="0"
+                                        Tag="{Binding}"
+                                        Background="#211E1A"
+                                        BorderBrush="#765A32"
+                                        BorderThickness="1"
+                                        Cursor="Hand"
+                                        Click="ProductButton_Click">
+
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
                                                 <Border x:Name="Card"
-                                                        Background="{TemplateBinding Background}"
-                                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                                        CornerRadius="10"
-                                                        RenderTransformOrigin="0.5,0.5">
-                                                    <Border.RenderTransform>
-                                                        <ScaleTransform x:Name="CardScale"
-                                                                        ScaleX="1"
-                                                                        ScaleY="1"/>
-                                                    </Border.RenderTransform>
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="10">
+
                                                     <Grid>
                                                         <Grid.RowDefinitions>
-                                                            <RowDefinition Height="94"/>
+                                                            <RowDefinition Height="68"/>
                                                             <RowDefinition Height="*"/>
                                                         </Grid.RowDefinitions>
 
                                                         <Border Margin="5"
-                                                                Background="#12110F"
-                                                                CornerRadius="7"
-                                                                ClipToBounds="True">
+                                                        Background="#12110F"
+                                                        CornerRadius="7"
+                                                        ClipToBounds="True">
+
                                                             <Image Source="{Binding ImagePath}"
-                                                                   Stretch="UniformToFill"
-                                                                   RenderOptions.BitmapScalingMode="LowQuality"/>
+                                                           Stretch="UniformToFill"
+                                                           RenderOptions.BitmapScalingMode="LowQuality"/>
                                                         </Border>
 
-                                                        <Grid Grid.Row="1" Margin="7,1,7,7">
+                                                        <Grid Grid.Row="1"
+                                                      Margin="8,2,8,8">
+
                                                             <Grid.RowDefinitions>
                                                                 <RowDefinition Height="*"/>
                                                                 <RowDefinition Height="Auto"/>
                                                             </Grid.RowDefinitions>
+
                                                             <TextBlock Text="{Binding Name}"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center"
-                                                                       TextAlignment="Center"
-                                                                       TextWrapping="Wrap"
-                                                                       FontSize="13.5"
-                                                                       FontWeight="SemiBold"
-                                                                       Foreground="#FFFDF8"/>
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               TextAlignment="Center"
+                                                               TextWrapping="Wrap"
+                                                               FontSize="11"
+                                                               LineHeight="13"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#FFFDF8"/>
+
                                                             <TextBlock Grid.Row="1"
-                                                                       Text="{Binding PriceText}"
-                                                                       Margin="0,2,0,0"
-                                                                       HorizontalAlignment="Center"
-                                                                       FontSize="15"
-                                                                       FontWeight="Bold"
-                                                                       Foreground="#E2B85F"/>
+                                                               Text="{Binding PriceText}"
+                                                               Margin="0,3,0,0"
+                                                               HorizontalAlignment="Center"
+                                                               FontSize="13"
+                                                               FontWeight="Bold"
+                                                               Foreground="#E2B85F"/>
                                                         </Grid>
                                                     </Grid>
                                                 </Border>
+
                                                 <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="Card" Property="BorderBrush" Value="#D0A354"/>
-                                                        <Setter TargetName="Card" Property="Background" Value="#2B261E"/>
-                                                    </Trigger>
-                                                    <Trigger Property="IsPressed" Value="True">
-                                                        <Setter TargetName="Card" Property="Opacity" Value="0.88"/>
-                                                        <Setter TargetName="Card" Property="Background" Value="#3A3022"/>
-                                                        <Setter TargetName="Card" Property="BorderBrush" Value="#E2B85F"/>
+                                                    <Trigger Property="IsMouseOver"
+                                                     Value="True">
                                                         <Setter TargetName="Card"
-                                                                Property="RenderTransform">
-                                                            <Setter.Value>
-                                                                <ScaleTransform ScaleX="0.96"
-                                                                ScaleY="0.96"/>
-                                                            </Setter.Value>
-                                                        </Setter>
+                                                        Property="BorderBrush"
+                                                        Value="#D0A354"/>
+                                                        <Setter TargetName="Card"
+                                                        Property="Background"
+                                                        Value="#2B261E"/>
+                                                    </Trigger>
+
+                                                    <Trigger Property="IsPressed"
+                                                     Value="True">
+                                                        <Setter TargetName="Card"
+                                                        Property="Opacity"
+                                                        Value="0.86"/>
+                                                        <Setter TargetName="Card"
+                                                        Property="Background"
+                                                        Value="#3A3022"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -335,9 +413,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
+                    </Border>
+            </Grid>
         </Grid>
 
         <!-- ADİSYON -->
@@ -468,6 +545,7 @@
                                     Padding="0"
                                     Margin="0"
                                     Tag="{Binding}"
+                                    IsEnabled="{Binding HasUnsentItems}"
                                     FontSize="13"
                                     Style="{StaticResource CategoryButtonStyle}"
                                     Click="DecreaseButton_Click"/>

@@ -1,14 +1,35 @@
 ﻿using KaldiPOS.Data;
 using System.Windows;
+using System.Windows.Media;
 
 namespace KaldiPOS.Views
 {
     public partial class OrderDetailWindow : Window
     {
-        public OrderDetailWindow(long orderId)
+        public OrderDetailWindow(
+            long orderId,
+            bool isCancelled = false)
         {
             InitializeComponent();
             LoadOrderDetail(orderId);
+
+            if (isCancelled)
+            {
+                OrderTitleText.Text = "İPTAL EDİLEN ADİSYON";
+
+                OrderSubTitleText.Text =
+                    $"Adisyon No: #{orderId}";
+
+                PaymentTypeText.Text = "İPTAL";
+
+                PaymentTypeText.Foreground =
+                    new SolidColorBrush(
+                        Color.FromRgb(230, 96, 105));
+
+                TotalAmountText.Foreground =
+                    new SolidColorBrush(
+                        Color.FromRgb(226, 184, 95));
+            }
         }
 
         private void LoadOrderDetail(long orderId)

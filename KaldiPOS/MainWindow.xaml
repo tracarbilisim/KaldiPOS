@@ -17,7 +17,8 @@
         </Grid.ColumnDefinitions>
 
         <!-- SOL MENÜ -->
-        <Border Grid.Column="0"
+            <Border x:Name="SideMenuBorder"
+                Grid.Column="0"
                 Background="#181613"
                 BorderBrush="#765A32"
                 BorderThickness="0,0,1,0">
@@ -60,7 +61,8 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="1">
-                    <Button Tag="Masalar"
+                    <Button x:Name="TablesMenuButton"
+                            Tag="Masalar"
                             Click="MenuButton_Click"
                             Style="{StaticResource Button.Primary}"
                             Margin="0,0,0,8">
@@ -116,6 +118,29 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="✓" FontSize="20" HorizontalAlignment="Center" />
                             <TextBlock x:Name="EndOfDayMenuText" Grid.Column="1" Text="Gün Sonu" VerticalAlignment="Center" Visibility="Collapsed" />
+                        </Grid>
+                    </Button>
+
+                    <Button x:Name="AuditMenuButton"
+        Tag="Denetim"
+        Click="MenuButton_Click"
+        Style="{StaticResource Button.Secondary}"
+        Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Text="◉"
+                   FontSize="19"
+                   HorizontalAlignment="Center" />
+
+                            <TextBlock x:Name="AuditMenuText"
+                   Grid.Column="1"
+                   Text="Denetim"
+                   VerticalAlignment="Center"
+                   Visibility="Collapsed" />
                         </Grid>
                     </Button>
 
@@ -190,6 +215,32 @@
                     <StackPanel HorizontalAlignment="Right"
                                 VerticalAlignment="Center"
                                 Orientation="Horizontal">
+
+                        <StackPanel x:Name="WaiterNavigationPanel"
+            Orientation="Horizontal"
+            Margin="0,0,18,0"
+            Visibility="Collapsed">
+
+                            <Button Content="OTURUMU KAPAT"
+            Width="150"
+            Height="40"
+            FontSize="12"
+            Background="#D96267"
+            BorderBrush="#EA777C"
+            Foreground="White"
+            BorderThickness="1"
+            FontWeight="SemiBold"
+            Cursor="Hand"
+            Click="WaiterLogoutButton_Click"/>
+                        </StackPanel>
+
+                        <Button Content="←  MASALAR"
+            Width="135"
+            Height="40"
+            FontSize="12"                        
+            Margin="0,0,8,0"
+            Style="{StaticResource Button.Primary}"
+            Click="WaiterBackToTablesButton_Click"/>
 
                         <StackPanel Margin="0,0,18,0" VerticalAlignment="Center">
                             <TextBlock x:Name="DateText"

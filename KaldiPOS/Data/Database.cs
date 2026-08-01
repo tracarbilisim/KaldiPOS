@@ -1311,8 +1311,13 @@ SET
     CancelledAt = $cancelledAt,
     CancelledBy = $cancelledBy,
     CancelReason = $cancelReason,
-    PaymentType = NULL,
-    TotalAmount = 0
+PaymentType = NULL,
+TotalAmount =
+(
+    SELECT COALESCE(SUM(oi.Quantity * oi.UnitPrice), 0)
+    FROM OrderItems oi
+    WHERE oi.OrderId = Orders.Id
+)
 WHERE Id =
 (
     SELECT o.Id
@@ -2217,6 +2222,67 @@ ORDER BY oi.Id;";
             TotalAmount.ToString("N2", TurkishCulture) + " ₺";
     }
 
+    public static List<CancelledOrderReportItem> GetCancelledOrders(
+    DateTime date)
+    {
+        var results = new List<CancelledOrderReportItem>();
+
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+
+        command.CommandText = @"
+SELECT
+    o.Id,
+    t.Name,
+    COALESCE(o.CancelledAt, o.ClosedAt),
+    COALESCE(o.CancelledBy, 'Bilinmiyor'),
+    COALESCE(o.CancelReason, 'Sebep belirtilmedi'),
+    COALESCE(o.TotalAmount, 0)
+FROM Orders o
+INNER JOIN Tables t ON t.Id = o.TableId
+WHERE COALESCE(o.IsCancelled, 0) = 1
+  AND o.BusinessDate = $businessDate
+ORDER BY COALESCE(o.CancelledAt, o.ClosedAt) DESC;";
+
+        command.Parameters.AddWithValue(
+            "$businessDate",
+            date.Date.ToString("yyyy-MM-dd"));
+
+        using var reader = command.ExecuteReader();
+
+        while (reader.Read())
+        {
+            string cancelledAtText =
+                reader.IsDBNull(2)
+                    ? DateTime.Now.ToString("O")
+                    : reader.GetString(2);
+
+            DateTime cancelledAt = DateTime.Parse(
+                cancelledAtText,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind);
+
+            decimal totalAmount = Convert.ToDecimal(
+                reader.GetDouble(5),
+                CultureInfo.InvariantCulture);
+
+            results.Add(
+                new CancelledOrderReportItem(
+                    reader.GetInt64(0),
+                    reader.GetString(1),
+                    cancelledAt,
+                    reader.GetString(3),
+                    reader.GetString(4),
+                    totalAmount));
+        }
+
+        return results;
+    }
+
     public static List<SalesReportItem> GetClosedOrders(DateTime date)
     {
         var results = new List<SalesReportItem>();
@@ -2326,6 +2392,139 @@ SELECT EXISTS
             date.Date.ToString("yyyy-MM-dd"));
 
         return Convert.ToInt32(command.ExecuteScalar()) == 1;
+    }
+
+    public static bool CreateAutomaticDayEnd()
+    {
+        DateTime activeBusinessDate = GetActiveBusinessDate();
+        DateTime nextBusinessDate = activeBusinessDate.AddDays(1);
+
+        SalesReportSummary summary =
+            GetSalesReportSummary(activeBusinessDate);
+
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var transaction = connection.BeginTransaction();
+
+        using (var checkCommand = connection.CreateCommand())
+        {
+            checkCommand.Transaction = transaction;
+            checkCommand.CommandText = @"
+SELECT EXISTS
+(
+    SELECT 1
+    FROM DayEndClosures
+    WHERE BusinessDate = $businessDate
+);";
+
+            checkCommand.Parameters.AddWithValue(
+                "$businessDate",
+                activeBusinessDate.ToString("yyyy-MM-dd"));
+
+            bool alreadyClosed =
+                Convert.ToInt32(checkCommand.ExecuteScalar()) == 1;
+
+            if (alreadyClosed)
+            {
+                transaction.Rollback();
+                return false;
+            }
+        }
+
+        using (var dayEndCommand = connection.CreateCommand())
+        {
+            dayEndCommand.Transaction = transaction;
+            dayEndCommand.CommandText = @"
+INSERT INTO DayEndClosures
+(
+    BusinessDate,
+    ClosedAt,
+    OrderCount,
+    TotalRevenue,
+    CashTotal,
+    CardTotal,
+    MixedTotal
+)
+VALUES
+(
+    $businessDate,
+    $closedAt,
+    $orderCount,
+    $totalRevenue,
+    $cashTotal,
+    $cardTotal,
+    $mixedTotal
+);";
+
+            dayEndCommand.Parameters.AddWithValue(
+                "$businessDate",
+                activeBusinessDate.ToString("yyyy-MM-dd"));
+
+            dayEndCommand.Parameters.AddWithValue(
+                "$closedAt",
+                DateTime.Now.ToString("O"));
+
+            dayEndCommand.Parameters.AddWithValue(
+                "$orderCount",
+                summary.OrderCount);
+
+            dayEndCommand.Parameters.AddWithValue(
+                "$totalRevenue",
+                summary.TotalRevenue);
+
+            dayEndCommand.Parameters.AddWithValue(
+                "$cashTotal",
+                summary.CashTotal);
+
+            dayEndCommand.Parameters.AddWithValue(
+                "$cardTotal",
+                summary.CardTotal);
+
+            dayEndCommand.Parameters.AddWithValue(
+                "$mixedTotal",
+                summary.MixedTotal);
+
+            dayEndCommand.ExecuteNonQuery();
+        }
+
+        // Açık adisyonları kapatmadan yeni iş gününe devret.
+        using (var carryCommand = connection.CreateCommand())
+        {
+            carryCommand.Transaction = transaction;
+            carryCommand.CommandText = @"
+UPDATE Orders
+SET BusinessDate = $nextBusinessDate
+WHERE Status = 0
+  AND ClosedAt IS NULL;";
+
+            carryCommand.Parameters.AddWithValue(
+                "$nextBusinessDate",
+                nextBusinessDate.ToString("yyyy-MM-dd"));
+
+            carryCommand.ExecuteNonQuery();
+        }
+
+        using (var metadataCommand = connection.CreateCommand())
+        {
+            metadataCommand.Transaction = transaction;
+            metadataCommand.CommandText = @"
+INSERT INTO AppMetadata (Key, Value)
+VALUES ('ActiveBusinessDate', $nextBusinessDate)
+ON CONFLICT(Key) DO UPDATE SET
+    Value = excluded.Value;";
+
+            metadataCommand.Parameters.AddWithValue(
+                "$nextBusinessDate",
+                nextBusinessDate.ToString("yyyy-MM-dd"));
+
+            metadataCommand.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+        return true;
     }
 
     public static void CreateDayEnd(DateTime date)
@@ -2909,6 +3108,7 @@ VALUES
         ("Menu.Reports","Raporlar","Menü"),
         ("Menu.DayEnd","Gün Sonu","Menü"),
         ("Menu.Settings","Ayarlar","Menü"),
+        ("Menu.Audit","Denetim Kayıtları","Menü"),
 
         ("Manage.Users","Kullanıcı Yönetimi","Yönetim"),
         ("Manage.Products","Ürün Yönetimi","Yönetim"),
@@ -3103,6 +3303,29 @@ public sealed record OrderDetailData(
         TotalAmount.ToString("N2", TurkishCulture) + " ₺";
 }
 
+public sealed record CancelledOrderReportItem(
+    long OrderId,
+    string TableName,
+    DateTime CancelledAt,
+    string CancelledBy,
+    string CancelReason,
+    decimal TotalAmount)
+{
+    private static readonly CultureInfo TurkishCulture =
+        CultureInfo.GetCultureInfo("tr-TR");
+
+    public string DateText =>
+        CancelledAt.ToString("dd.MM.yyyy");
+
+    public string TimeText =>
+        CancelledAt.ToString("HH:mm");
+
+    public string DateTimeText =>
+        CancelledAt.ToString("dd.MM.yyyy HH:mm");
+
+    public string AmountText =>
+        TotalAmount.ToString("N2", TurkishCulture) + " ₺";
+}
 
 public sealed record SalesReportItem(
     long OrderId,

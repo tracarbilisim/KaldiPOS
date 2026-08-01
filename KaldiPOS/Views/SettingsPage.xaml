@@ -236,9 +236,16 @@
                                Foreground="#918A80"/>
                 </StackPanel>
 
-                <StackPanel Grid.Row="1">
-                    <Button Content="🏪  İşletme Bilgileri"
+                <StackPanel x:Name="SettingsMenuPanel"
+                            Grid.Row="1">
+                    <Button x:Name="BusinessSettingsMenuButton"
+                            Content="🏪  İşletme Bilgileri"
                             Tag="Business"
+                            Style="{StaticResource SettingsMenuButton}"
+                            Click="MenuButton_Click"/>
+
+                    <Button Content="◷  İş Günü Ayarları"
+                            Tag="DayEnd"
                             Style="{StaticResource SettingsMenuButton}"
                             Click="MenuButton_Click"/>
 
@@ -358,6 +365,111 @@
                             BorderThickness="0"
                             FontWeight="Bold"
                             Cursor="Hand"/>
+                </Grid>
+
+                <!-- İŞ GÜNÜ -->
+                <Grid x:Name="DayEndSettingsPanel"
+      Visibility="Collapsed">
+
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="İş Günü Ayarları"
+                   FontSize="24"
+                   FontWeight="Bold"
+                   Foreground="White"/>
+
+                        <TextBlock Text="Otomatik gün sonu saatini ve açık adisyonların davranışını yönetin"
+                   Margin="0,5,0,0"
+                   Foreground="#AFA89D"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1"
+                Margin="0,25,0,0"
+                Width="620"
+                HorizontalAlignment="Left">
+
+                        <Border Padding="20"
+                CornerRadius="10"
+                Background="#29251F"
+                BorderBrush="#765A32"
+                BorderThickness="1">
+
+                            <StackPanel>
+                                <CheckBox x:Name="AutomaticDayEndCheckBox"
+                          Content="Otomatik gün sonunu etkinleştir"
+                          Style="{StaticResource PermissionCheckBox}"
+                          IsChecked="True"/>
+
+                                <TextBlock Text="Gün Sonu Saati"
+                           Margin="0,20,0,6"
+                           Style="{StaticResource FieldLabel}"/>
+
+                                <TextBox x:Name="AutomaticDayEndTimeTextBox"
+                         Width="150"
+                         HorizontalAlignment="Left"
+                         Text="23:55"
+                         MaxLength="5"
+                         Style="{StaticResource FieldTextBox}"/>
+
+                                <TextBlock Text="Saati 24 saat biçiminde girin. Örnek: 23:55 veya 02:30"
+                           Margin="0,6,0,0"
+                           FontSize="12"
+                           Foreground="#918A80"/>
+
+                                <CheckBox x:Name="CarryOpenOrdersCheckBox"
+                          Content="Açık adisyonları kapatmadan yeni iş gününe devret"
+                          Margin="0,20,0,0"
+                          Style="{StaticResource PermissionCheckBox}"
+                          IsChecked="True"/>
+
+                                <CheckBox x:Name="DayEndWarningCheckBox"
+                          Content="Otomatik gün sonundan önce uyarı göster"
+                          Margin="0,8,0,0"
+                          Style="{StaticResource PermissionCheckBox}"
+                          IsChecked="True"/>
+
+                                <TextBlock Text="Uyarı Süresi (Dakika)"
+                           Margin="0,20,0,6"
+                           Style="{StaticResource FieldLabel}"/>
+
+                                <TextBox x:Name="DayEndWarningMinutesTextBox"
+                         Width="150"
+                         HorizontalAlignment="Left"
+                         Text="5"
+                         MaxLength="2"
+                         Style="{StaticResource FieldTextBox}"/>
+
+                                <Border Margin="0,22,0,0"
+                        Padding="14"
+                        CornerRadius="8"
+                        Background="#211E1A"
+                        BorderBrush="#554225"
+                        BorderThickness="1">
+
+                                    <TextBlock Text="Otomatik gün sonunda tamamlanmış satışlar kapatılır. Açık masalar ve ürünleri korunarak yeni iş gününe aktarılır."
+                               TextWrapping="Wrap"
+                               Foreground="#C4BDB3"/>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <Button Grid.Row="2"
+            Content="İş Günü Ayarlarını Kaydet"
+            Width="220"
+            Height="44"
+            HorizontalAlignment="Right"
+            Click="SaveDayEndSettingsButton_Click"
+            Background="#D4A64F"
+            Foreground="#171512"
+            BorderThickness="0"
+            FontWeight="Bold"
+            Cursor="Hand"/>
                 </Grid>
 
                 <!-- YAZICILAR -->
