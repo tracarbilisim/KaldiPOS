@@ -54,10 +54,9 @@ namespace KaldiPOS.Views
 
         private void ResetPin()
         {
-            ResetPin();
-            ResetPin();
-            ResetPin();
-
+            _enteredPin = string.Empty;
+            StatusText.Text = string.Empty;
+            UpdatePinIndicators();
         }
 
         private void LoginButton_Click(object sender, RoutedEventArgs e)

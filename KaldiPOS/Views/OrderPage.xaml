@@ -545,7 +545,6 @@
                                     Padding="0"
                                     Margin="0"
                                     Tag="{Binding}"
-                                    IsEnabled="{Binding HasUnsentItems}"
                                     FontSize="13"
                                     Style="{StaticResource CategoryButtonStyle}"
                                     Click="DecreaseButton_Click"/>
@@ -615,39 +614,53 @@
 
                                     <!-- Alt satır -->
                                     <Grid Grid.Row="1"
-                      Margin="85,4,0,0">
+      Margin="85,4,0,0">
 
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel>
                                             <TextBlock Text="{Binding LineTotalText}"
-                                   FontSize="11"
-                                   FontWeight="SemiBold"
-                                   Foreground="#E2B85F"/>
+                   FontSize="11"
+                   FontWeight="SemiBold"
+                   Foreground="#E2B85F"/>
 
                                             <TextBlock Text="{Binding NoteDisplay}"
-                                   Margin="0,2,0,0"
-                                   FontSize="9.5"
-                                   FontStyle="Italic"
-                                   Foreground="#BDB7AD"
-                                   TextTrimming="CharacterEllipsis"
-                                   ToolTip="{Binding NoteDisplay}"/>
+                   Margin="0,2,0,0"
+                   FontSize="9.5"
+                   FontStyle="Italic"
+                   Foreground="#BDB7AD"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip="{Binding NoteDisplay}"/>
                                         </StackPanel>
 
                                         <Button Grid.Column="1"
-                            Content="Not"
-                            Width="43"
-                            Height="24"
-                            Margin="6,0,0,0"
-                            Padding="0"
-                            VerticalAlignment="Bottom"
-                            Tag="{Binding}"
-                            FontSize="9.5"
-                            Style="{StaticResource CategoryButtonStyle}"
-                            Click="NoteButton_Click"/>
+            Content="Not"
+            Width="43"
+            Height="24"
+            Margin="6,0,0,0"
+            Padding="0"
+            VerticalAlignment="Bottom"
+            Tag="{Binding}"
+            FontSize="9.5"
+            Style="{StaticResource CategoryButtonStyle}"
+            Click="NoteButton_Click"/>
+
+                                        <Button Grid.Column="2"
+            Content="İptal"
+            Width="48"
+            Height="24"
+            Margin="5,0,0,0"
+            Padding="0"
+            VerticalAlignment="Bottom"
+            Tag="{Binding}"
+            FontSize="9.5"
+            Foreground="#FF727C"
+            Style="{StaticResource CategoryButtonStyle}"
+            Click="CancelItemButton_Click"/>
                                     </Grid>
                                 </Grid>
                             </Border>

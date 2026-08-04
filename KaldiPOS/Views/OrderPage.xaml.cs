@@ -403,10 +403,16 @@ namespace KaldiPOS.Views
                 return;
             }
 
+            if (!EnsurePermission(
+                    "Order.AddItem",
+                    "Ürün miktarını artırma"))
+            {
+                return;
+            }
+
             item.Quantity++;
             UpdateTotals();
             ScrollOrderToLastItem();
-        
         }
 
         private void DecreaseButton_Click(
@@ -419,28 +425,103 @@ namespace KaldiPOS.Views
                 return;
             }
 
+            if (!EnsurePermission(
+                    "Order.RemoveItem",
+                    "Ürün miktarını azaltma"))
+            {
+                return;
+            }
+
             if (item.UnsentQuantity <= 0)
             {
                 KaldiMessageWindow.ShowWarning(
                     Window.GetWindow(this),
                     "Gönderilmiş Ürün Değiştirilemez",
-                    "Bu ürün daha önce gönderildiği için miktarı azaltılamaz " +
-                    "ve adisyondan silinemez.\n\n" +
-                    "Gerekli durumlarda yetkili iptal işlemi kullanılmalıdır.");
+                    "Bu ürün daha önce gönderildiği için doğrudan azaltılamaz.\n\n" +
+                    "Gönderilmiş ürünler için yetkili iptal işlemi kullanılmalıdır.");
 
                 return;
             }
 
             if (item.Quantity > 1)
-            {
                 item.Quantity--;
-            }
             else
-            {
                 OrderItems.Remove(item);
-            }
 
             UpdateTotals();
+        }
+
+        private void CancelItemButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            if (sender is not Button button ||
+                button.Tag is not OrderItem item)
+            {
+                return;
+            }
+
+            if (!EnsurePermission(
+                    "Order.RemoveItem",
+                    "Gönderilmiş ürün iptali"))
+            {
+                return;
+            }
+
+            if (item.SentQuantity <= 0)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Ürün Gönderilmedi",
+                    "Gönderilmemiş ürünü eksi tuşuyla kaldırabilirsiniz.");
+
+                return;
+            }
+
+            var cancelWindow = new ProductCancelWindow(
+                _tableName,
+                item.Name,
+                item.SentQuantity)
+            {
+                Owner = Window.GetWindow(this)
+            };
+
+            if (cancelWindow.ShowDialog() != true)
+                return;
+
+            int cancelQuantity = cancelWindow.CancelQuantity;
+
+            Database.RecordProductCancellation(
+                _tableName,
+                item.ProductId,
+                item.Name,
+                cancelQuantity,
+                item.Price,
+                cancelWindow.CancelReason,
+                UserSession.CurrentUser.FullName);
+
+            item.Quantity -= cancelQuantity;
+            item.SentQuantity -= cancelQuantity;
+
+            if (item.Quantity <= 0)
+                OrderItems.Remove(item);
+
+            Database.SaveOpenOrder(
+                _tableName,
+                OrderItems.Select(orderItem =>
+                    new SavedOrderItem(
+                        orderItem.ProductId,
+                        orderItem.Name,
+                        orderItem.Quantity,
+                        orderItem.Price,
+                        orderItem.SentQuantity,
+                        orderItem.Note)));
+
+            UpdateTotals();
+
+            KaldiToastWindow.ShowSuccess(
+                Window.GetWindow(this),
+                $"{cancelQuantity} adet {item.Name} iptal edildi.");
         }
 
         private void NoteButton_Click(object sender, RoutedEventArgs e)

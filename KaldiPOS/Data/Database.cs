@@ -94,6 +94,25 @@ CREATE TABLE IF NOT EXISTS OrderPayments
     FOREIGN KEY (OrderId) REFERENCES Orders(Id)
 );
 
+CREATE TABLE IF NOT EXISTS CancelledOrderItems
+(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    OrderId INTEGER NOT NULL,
+    TableName TEXT NOT NULL,
+    ProductId INTEGER NOT NULL,
+    ProductName TEXT NOT NULL,
+    Quantity INTEGER NOT NULL,
+    UnitPrice REAL NOT NULL,
+    TotalAmount REAL NOT NULL,
+    CancelReason TEXT NOT NULL,
+    CancelledBy TEXT NOT NULL,
+    CancelledAt TEXT NOT NULL,
+    FOREIGN KEY (OrderId) REFERENCES Orders(Id)
+);
+
+CREATE INDEX IF NOT EXISTS IX_CancelledOrderItems_OrderId
+ON CancelledOrderItems(OrderId);
+
 CREATE TABLE IF NOT EXISTS DayEndClosures
 (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1288,6 +1307,98 @@ WHERE Id IN
         }
 
         transaction.Commit();
+    }
+
+    public static void RecordProductCancellation(
+    string tableName,
+    int productId,
+    string productName,
+    int quantity,
+    decimal unitPrice,
+    string cancelReason,
+    string cancelledBy)
+    {
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+
+        command.CommandText = @"
+INSERT INTO CancelledOrderItems
+(
+    OrderId,
+    TableName,
+    ProductId,
+    ProductName,
+    Quantity,
+    UnitPrice,
+    TotalAmount,
+    CancelReason,
+    CancelledBy,
+    CancelledAt
+)
+SELECT
+    o.Id,
+    $tableName,
+    $productId,
+    $productName,
+    $quantity,
+    $unitPrice,
+    $totalAmount,
+    $cancelReason,
+    $cancelledBy,
+    $cancelledAt
+FROM Orders o
+INNER JOIN Tables t ON t.Id = o.TableId
+WHERE t.Name = $tableName
+  AND o.Status = 0
+  AND o.ClosedAt IS NULL
+ORDER BY o.Id DESC
+LIMIT 1;";
+
+        command.Parameters.AddWithValue(
+            "$tableName",
+            tableName);
+
+        command.Parameters.AddWithValue(
+            "$productId",
+            productId);
+
+        command.Parameters.AddWithValue(
+            "$productName",
+            productName);
+
+        command.Parameters.AddWithValue(
+            "$quantity",
+            quantity);
+
+        command.Parameters.AddWithValue(
+            "$unitPrice",
+            unitPrice);
+
+        command.Parameters.AddWithValue(
+            "$totalAmount",
+            unitPrice * quantity);
+
+        command.Parameters.AddWithValue(
+            "$cancelReason",
+            cancelReason.Trim());
+
+        command.Parameters.AddWithValue(
+            "$cancelledBy",
+            cancelledBy.Trim());
+
+        command.Parameters.AddWithValue(
+            "$cancelledAt",
+            DateTime.Now.ToString("O"));
+
+        if (command.ExecuteNonQuery() == 0)
+        {
+            throw new InvalidOperationException(
+                "Açık adisyon bulunamadığı için ürün iptali kaydedilemedi.");
+        }
     }
 
     public static void CancelOpenOrder(

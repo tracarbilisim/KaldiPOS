@@ -22,8 +22,10 @@ namespace KaldiPOS.Views
 
             Owner = owner;
             Title = title;
-            Width = 430;
-            Height = isQuestion ? 270 : 240;
+            Width = 480;
+            MinHeight = 240;
+            MaxHeight = 560;
+            SizeToContent = SizeToContent.Height;
             ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation =
                 WindowStartupLocation.CenterOwner;
@@ -44,7 +46,7 @@ namespace KaldiPOS.Views
 
             root.RowDefinitions.Add(new RowDefinition
             {
-                Height = new GridLength(1, GridUnitType.Star)
+                Height = GridLength.Auto
             });
 
             root.RowDefinitions.Add(new RowDefinition
@@ -144,8 +146,16 @@ namespace KaldiPOS.Views
                 VerticalAlignment = VerticalAlignment.Top
             };
 
-            Grid.SetColumn(messageText, 1);
-            messageGrid.Children.Add(messageText);
+            var messageScrollViewer = new ScrollViewer
+            {
+                MaxHeight = 240,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Content = messageText
+            };
+
+            Grid.SetColumn(messageScrollViewer, 1);
+            messageGrid.Children.Add(messageScrollViewer);
 
             Grid.SetRow(messageGrid, 1);
             root.Children.Add(messageGrid);
