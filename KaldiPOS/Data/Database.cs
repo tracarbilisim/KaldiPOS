@@ -2937,9 +2937,11 @@ SELECT last_insert_rowid();";
         ValidateRole(role);
 
         if (!string.IsNullOrWhiteSpace(newPin) &&
-            (newPin.Length != 4 || !newPin.All(char.IsDigit)))
+            (newPin.Length < 4 ||
+             newPin.Length > 32 ||
+             !newPin.All(char.IsDigit)))
         {
-            throw new InvalidOperationException("PIN yalnızca 4 rakamdan oluşmalıdır.");
+            throw new InvalidOperationException("PIN yalnızca rakamlardan oluşmalı ve 4-32 hane arasında olmalıdır.");
         }
 
         using var connection = new SqliteConnection(ConnectionString);
@@ -3153,8 +3155,8 @@ VALUES
         if (string.IsNullOrWhiteSpace(fullName))
             throw new InvalidOperationException("Kullanıcı adı boş bırakılamaz.");
 
-        if (pin.Length != 4 || !pin.All(char.IsDigit))
-            throw new InvalidOperationException("PIN yalnızca 4 rakamdan oluşmalıdır.");
+        if (pin.Length < 4 || pin.Length > 32 || !pin.All(char.IsDigit))
+            throw new InvalidOperationException("PIN yalnızca rakamlardan oluşmalı ve 4-32 hane arasında olmalıdır.");
 
         ValidateRole(role);
     }

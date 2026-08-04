@@ -10,7 +10,8 @@ namespace KaldiPOS.Views
 {
     public partial class LoginWindow : Window
     {
-        private const int RequiredPinLength = 4;
+        private const int MinPinLength = 4;
+        private const int MaxPinLength = 32;
         private string _enteredPin = string.Empty;
 
         public LoginWindow()
@@ -22,7 +23,7 @@ namespace KaldiPOS.Views
 
         private void NumberButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_enteredPin.Length >= RequiredPinLength)
+            if (_enteredPin.Length >= MaxPinLength)
                 return;
 
             if (sender is Button button && button.Tag is string number)
@@ -31,16 +32,32 @@ namespace KaldiPOS.Views
                 StatusText.Text = string.Empty;
                 UpdatePinIndicators();
 
-                if (_enteredPin.Length == RequiredPinLength)
-                    AttemptLogin();
             }
         }
 
         private void ClearButton_Click(object sender, RoutedEventArgs e)
         {
-            _enteredPin = string.Empty;
+            ResetPin();
+            ResetPin();
+            ResetPin();
+        }
+
+        private void BackspaceButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_enteredPin.Length == 0)
+                return;
+
+            _enteredPin = _enteredPin[..^1];
             StatusText.Text = string.Empty;
             UpdatePinIndicators();
+        }
+
+        private void ResetPin()
+        {
+            ResetPin();
+            ResetPin();
+            ResetPin();
+
         }
 
         private void LoginButton_Click(object sender, RoutedEventArgs e)
@@ -50,9 +67,9 @@ namespace KaldiPOS.Views
 
         private void AttemptLogin()
         {
-            if (_enteredPin.Length != RequiredPinLength)
+            if (_enteredPin.Length < MinPinLength)
             {
-                StatusText.Text = "Lütfen 4 haneli şifrenizi girin.";
+                StatusText.Text = $"PIN en az {MinPinLength} haneli olmalıdır.";
                 return;
             }
 
@@ -62,9 +79,9 @@ namespace KaldiPOS.Views
 
                 if (user is null)
                 {
-                    _enteredPin = string.Empty;
-                    StatusText.Text = "Hatalı PIN veya pasif kullanıcı.";
-                    UpdatePinIndicators();
+                    ResetPin();
+                    ResetPin();
+                    ResetPin();
                     Focus();
                     return;
                 }
@@ -79,23 +96,16 @@ namespace KaldiPOS.Views
             }
             catch
             {
-                _enteredPin = string.Empty;
-                StatusText.Text = "Giriş işlemi gerçekleştirilemedi.";
-                UpdatePinIndicators();
+                ResetPin();
+                StatusText.Text = "Beklenmeyen bir hata oluştu.";
+                ResetPin();
                 Focus();
             }
         }
 
         private void UpdatePinIndicators()
         {
-            Ellipse[] dots = { PinDot1, PinDot2, PinDot3, PinDot4 };
-
-            for (int i = 0; i < dots.Length; i++)
-            {
-                dots[i].Fill = i < _enteredPin.Length
-                    ? (Brush)FindResource("Brush.GoldLight")
-                    : (Brush)FindResource("Brush.Gray");
-            }
+            PinDisplay.Text = string.Join(" ", Enumerable.Repeat("●", _enteredPin.Length));
         }
 
         private void Window_KeyDown(object sender, KeyEventArgs e)
@@ -108,7 +118,15 @@ namespace KaldiPOS.Views
             {
                 AddKeyboardNumber((e.Key - Key.NumPad0).ToString());
             }
-            else if (e.Key == Key.Back || e.Key == Key.Delete)
+            else if (e.Key == Key.Back)
+            {
+                BackspaceButton_Click(sender, e);
+            }
+            else if (e.Key == Key.Back)
+            {
+                BackspaceButton_Click(sender, e);
+            }
+            else if (e.Key == Key.Delete)
             {
                 ClearButton_Click(sender, e);
             }
@@ -124,15 +142,13 @@ namespace KaldiPOS.Views
 
         private void AddKeyboardNumber(string number)
         {
-            if (_enteredPin.Length >= RequiredPinLength)
+            if (_enteredPin.Length >= MaxPinLength)
                 return;
 
             _enteredPin += number;
             StatusText.Text = string.Empty;
             UpdatePinIndicators();
 
-            if (_enteredPin.Length == RequiredPinLength)
-                AttemptLogin();
         }
     }
 }

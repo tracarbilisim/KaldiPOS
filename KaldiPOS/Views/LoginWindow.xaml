@@ -90,35 +90,16 @@
                                    Foreground="{StaticResource Brush.Gray}"
                                    Text="Giriş yapmak için şifrenizi girin" />
 
-                        <StackPanel x:Name="PinIndicatorPanel"
-                                    Margin="0,0,0,18"
-                                    HorizontalAlignment="Center"
-                                    Orientation="Horizontal">
-
-                            <Ellipse x:Name="PinDot1"
-                                     Width="13"
-                                     Height="13"
-                                     Margin="7"
-                                     Fill="{StaticResource Brush.Gray}" />
-
-                            <Ellipse x:Name="PinDot2"
-                                     Width="13"
-                                     Height="13"
-                                     Margin="7"
-                                     Fill="{StaticResource Brush.Gray}" />
-
-                            <Ellipse x:Name="PinDot3"
-                                     Width="13"
-                                     Height="13"
-                                     Margin="7"
-                                     Fill="{StaticResource Brush.Gray}" />
-
-                            <Ellipse x:Name="PinDot4"
-                                     Width="13"
-                                     Height="13"
-                                     Margin="7"
-                                     Fill="{StaticResource Brush.Gray}" />
-                        </StackPanel>
+                        <TextBlock
+    x:Name="PinDisplay"
+    HorizontalAlignment="Center"
+    VerticalAlignment="Center"
+    FontSize="26"
+    FontWeight="SemiBold"
+    Foreground="{StaticResource Brush.GoldLight}"
+    Text=""
+    TextAlignment="Center"
+    FontFamily="Consolas"/>
 
                         <UniformGrid Columns="3" Rows="4">
                             <Button Content="1" Tag="1"
@@ -157,10 +138,10 @@
                                     Style="{StaticResource Button.Keypad}"
                                     Click="NumberButton_Click" />
 
-                            <Button Content="✕"
-                                    Foreground="{StaticResource Brush.Danger}"
+                            <Button Content="←"
+                                    Foreground="{StaticResource Brush.Warning}"
                                     Style="{StaticResource Button.Keypad}"
-                                    Click="ClearButton_Click" />
+                                    Click="BackspaceButton_Click" />
 
                             <Button Content="0" Tag="0"
                                     Style="{StaticResource Button.Keypad}"
@@ -169,6 +150,7 @@
                             <Button Content="↵"
                                     Foreground="{StaticResource Brush.Success}"
                                     Style="{StaticResource Button.Keypad}"
+                                    IsDefault="True"
                                     Click="LoginButton_Click" />
                         </UniformGrid>
 

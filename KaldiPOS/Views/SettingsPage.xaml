@@ -680,13 +680,13 @@
                              Style="{StaticResource TextBox.Kaldi}"
                              MaxLength="80"/>
 
-                                    <TextBlock Text="4 Haneli PIN"
+                                    <TextBlock Text="PIN (Minimum 4 Hane)"
                                Margin="0,18,0,6"
                                Style="{StaticResource FieldLabel}"/>
 
                                     <PasswordBox x:Name="UserPinPasswordBox"
                                  Style="{StaticResource PasswordBox.Kaldi}"
-                                 MaxLength="4"
+                                 MaxLength="32"
                                  PreviewTextInput=
                                  "UserPinPasswordBox_PreviewTextInput"/>
 
