@@ -1,6 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Markup;
 
 namespace KaldiPOS.Views;
 
@@ -52,7 +53,8 @@ public sealed class ProductCancelWindow : Window
         {
             Height = 44,
             Margin = new Thickness(0, 6, 0, 16),
-            FontSize = 15
+            FontSize = 15,
+            Style = CreateComboBoxStyle()
         };
 
         for (int quantity = 1; quantity <= maximumQuantity; quantity++)
@@ -67,7 +69,8 @@ public sealed class ProductCancelWindow : Window
         {
             Height = 44,
             Margin = new Thickness(0, 6, 0, 16),
-            FontSize = 14
+            FontSize = 14,
+            Style = CreateComboBoxStyle()
         };
 
         _reasonComboBox.Items.Add("Yanlış ürün girildi");
@@ -188,6 +191,182 @@ public sealed class ProductCancelWindow : Window
             Foreground = new SolidColorBrush(foreground),
             BorderThickness = new Thickness(0)
         };
+    }
+
+    private static Style CreateComboBoxStyle()
+    {
+        const string styleXaml = """
+<Style
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    TargetType="{x:Type ComboBox}">
+
+    <Setter Property="Foreground" Value="White"/>
+    <Setter Property="Background" Value="#2A2621"/>
+    <Setter Property="BorderBrush" Value="#765A32"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="12,0,8,0"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+
+    <Setter Property="ItemContainerStyle">
+        <Setter.Value>
+            <Style TargetType="{x:Type ComboBoxItem}">
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Background" Value="#2A2621"/>
+                <Setter Property="Padding" Value="12,10"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="HorizontalContentAlignment"
+                        Value="Stretch"/>
+
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ComboBoxItem}">
+                            <Border
+                                x:Name="ItemBorder"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                                <ContentPresenter
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Left"/>
+                            </Border>
+
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver"
+                                         Value="True">
+                                    <Setter
+                                        TargetName="ItemBorder"
+                                        Property="Background"
+                                        Value="#5C4C30"/>
+                                </Trigger>
+
+                                <Trigger Property="IsSelected"
+                                         Value="True">
+                                    <Setter
+                                        TargetName="ItemBorder"
+                                        Property="Background"
+                                        Value="#D2A654"/>
+                                    <Setter
+                                        Property="Foreground"
+                                        Value="#17130E"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </Setter.Value>
+    </Setter>
+
+    <Setter Property="Template">
+        <Setter.Value>
+            <ControlTemplate TargetType="{x:Type ComboBox}">
+                <Grid>
+                    <Border
+                        x:Name="MainBorder"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="6">
+
+<ToggleButton
+    Background="Transparent"
+    BorderThickness="0"
+    Focusable="False"
+    HorizontalContentAlignment="Stretch"
+    VerticalContentAlignment="Stretch"
+    IsChecked="{Binding IsDropDownOpen,
+        Mode=TwoWay,
+        RelativeSource={RelativeSource TemplatedParent}}">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="42"/>
+        </Grid.ColumnDefinitions>
+
+<ContentPresenter
+Grid.Column="0"
+Margin="{TemplateBinding Padding}"
+VerticalAlignment="Center"
+HorizontalAlignment="Left"
+TextElement.Foreground="White"
+Content="{TemplateBinding SelectionBoxItem}"
+ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"/>
+
+        <TextBlock
+            Grid.Column="1"
+            Text="▼"
+            FontSize="11"
+            Foreground="#D2A654"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"/>
+    </Grid>
+</ToggleButton>
+                    </Border>
+
+                    <Popup
+                        x:Name="PART_Popup"
+                        Placement="Bottom"
+                        AllowsTransparency="True"
+                        Focusable="False"
+                        IsOpen="{TemplateBinding IsDropDownOpen}"
+                        PopupAnimation="Fade">
+
+                        <Border
+                            Margin="0,3,0,0"
+                            MinWidth="{Binding ActualWidth,
+                                RelativeSource={RelativeSource TemplatedParent}}"
+                            MaxHeight="280"
+                            Background="#2A2621"
+                            BorderBrush="#765A32"
+                            BorderThickness="1"
+                            CornerRadius="6">
+
+                            <ScrollViewer
+                                VerticalScrollBarVisibility="Auto"
+                                HorizontalScrollBarVisibility="Disabled">
+                                <ItemsPresenter/>
+                            </ScrollViewer>
+                        </Border>
+                    </Popup>
+                </Grid>
+
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver"
+                             Value="True">
+                        <Setter
+                            TargetName="MainBorder"
+                            Property="BorderBrush"
+                            Value="#D2A654"/>
+                    </Trigger>
+
+                    <Trigger Property="IsKeyboardFocusWithin"
+                             Value="True">
+                        <Setter
+                            TargetName="MainBorder"
+                            Property="BorderBrush"
+                            Value="#D2A654"/>
+                        <Setter
+                            TargetName="MainBorder"
+                            Property="BorderThickness"
+                            Value="2"/>
+                    </Trigger>
+
+                    <Trigger Property="IsEnabled"
+                             Value="False">
+                        <Setter Property="Opacity" Value="0.55"/>
+                    </Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate>
+        </Setter.Value>
+    </Setter>
+</Style>
+""";
+
+        return (Style)XamlReader.Parse(styleXaml);
     }
 
     private static Brush GoldBrush()
