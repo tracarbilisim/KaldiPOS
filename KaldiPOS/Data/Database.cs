@@ -1,9 +1,10 @@
 ﻿using Microsoft.Data.Sqlite;
 using System.Globalization;
 using System.IO;
-using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using static KaldiPOS.Data.DayEndRecord;
 
 namespace KaldiPOS.Data;
 
@@ -174,6 +175,47 @@ ON UserPermissions(UserId);
 
 CREATE INDEX IF NOT EXISTS IX_UserPermissions_PermissionKey
 ON UserPermissions(PermissionKey);
+
+CREATE TABLE IF NOT EXISTS CurrentAccounts
+(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    Name TEXT NOT NULL,
+    Phone TEXT NOT NULL DEFAULT '',
+    Description TEXT NOT NULL DEFAULT '',
+    IsActive INTEGER NOT NULL DEFAULT 1,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT
+);
+
+CREATE INDEX IF NOT EXISTS IX_CurrentAccounts_Name
+ON CurrentAccounts(Name);
+
+CREATE INDEX IF NOT EXISTS IX_CurrentAccounts_IsActive
+ON CurrentAccounts(IsActive);
+
+CREATE TABLE IF NOT EXISTS CurrentAccountTransactions
+(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    CurrentAccountId INTEGER NOT NULL,
+    TransactionType TEXT NOT NULL,
+    Amount REAL NOT NULL,
+    Description TEXT NOT NULL DEFAULT '',
+    OrderId INTEGER,
+    CreatedBy TEXT NOT NULL,
+    CreatedAt TEXT NOT NULL,
+
+    FOREIGN KEY(CurrentAccountId)
+        REFERENCES CurrentAccounts(Id),
+
+    FOREIGN KEY(OrderId)
+        REFERENCES Orders(Id)
+);
+
+CREATE INDEX IF NOT EXISTS IX_CurrentAccountTransactions_AccountId
+ON CurrentAccountTransactions(CurrentAccountId);
+
+CREATE INDEX IF NOT EXISTS IX_CurrentAccountTransactions_CreatedAt
+ON CurrentAccountTransactions(CreatedAt);
 
 CREATE TABLE IF NOT EXISTS AppMetadata
 (
@@ -3314,6 +3356,351 @@ VALUES
         alterCommand.ExecuteNonQuery();
     }
 
+    public static long AddCurrentAccount(
+    string name,
+    string phone,
+    string description)
+    {
+        name = (name ?? string.Empty).Trim();
+        phone = (phone ?? string.Empty).Trim();
+        description = (description ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+            throw new InvalidOperationException("Cari adı boş bırakılamaz.");
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var duplicateCommand = connection.CreateCommand();
+        duplicateCommand.CommandText = @"
+SELECT COUNT(*)
+FROM CurrentAccounts
+WHERE Name = $name COLLATE NOCASE;";
+
+        duplicateCommand.Parameters.AddWithValue("$name", name);
+
+        if (Convert.ToInt32(duplicateCommand.ExecuteScalar()) > 0)
+            throw new InvalidOperationException(
+                "Aynı isimde bir cari hesabı zaten bulunuyor.");
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO CurrentAccounts
+(
+    Name,
+    Phone,
+    Description,
+    IsActive,
+    CreatedAt,
+    UpdatedAt
+)
+VALUES
+(
+    $name,
+    $phone,
+    $description,
+    1,
+    $createdAt,
+    NULL
+);
+
+SELECT last_insert_rowid();";
+
+        command.Parameters.AddWithValue("$name", name);
+        command.Parameters.AddWithValue("$phone", phone);
+        command.Parameters.AddWithValue("$description", description);
+        command.Parameters.AddWithValue(
+            "$createdAt",
+            DateTime.Now.ToString("O"));
+
+        return Convert.ToInt64(command.ExecuteScalar());
+    }
+
+    public static void UpdateCurrentAccount(
+        long currentAccountId,
+        string name,
+        string phone,
+        string description)
+    {
+        name = (name ?? string.Empty).Trim();
+        phone = (phone ?? string.Empty).Trim();
+        description = (description ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+            throw new InvalidOperationException("Cari adı boş bırakılamaz.");
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var duplicateCommand = connection.CreateCommand();
+        duplicateCommand.CommandText = @"
+SELECT COUNT(*)
+FROM CurrentAccounts
+WHERE Name = $name COLLATE NOCASE
+  AND Id <> $id;";
+
+        duplicateCommand.Parameters.AddWithValue("$name", name);
+        duplicateCommand.Parameters.AddWithValue("$id", currentAccountId);
+
+        if (Convert.ToInt32(duplicateCommand.ExecuteScalar()) > 0)
+            throw new InvalidOperationException(
+                "Aynı isimde başka bir cari hesabı bulunuyor.");
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+UPDATE CurrentAccounts
+SET Name = $name,
+    Phone = $phone,
+    Description = $description,
+    UpdatedAt = $updatedAt
+WHERE Id = $id;";
+
+        command.Parameters.AddWithValue("$name", name);
+        command.Parameters.AddWithValue("$phone", phone);
+        command.Parameters.AddWithValue("$description", description);
+        command.Parameters.AddWithValue(
+            "$updatedAt",
+            DateTime.Now.ToString("O"));
+        command.Parameters.AddWithValue("$id", currentAccountId);
+
+        if (command.ExecuteNonQuery() == 0)
+            throw new InvalidOperationException("Cari hesabı bulunamadı.");
+    }
+
+    public static void SetCurrentAccountActive(
+        long currentAccountId,
+        bool isActive)
+    {
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+UPDATE CurrentAccounts
+SET IsActive = $isActive,
+    UpdatedAt = $updatedAt
+WHERE Id = $id;";
+
+        command.Parameters.AddWithValue(
+            "$isActive",
+            isActive ? 1 : 0);
+
+        command.Parameters.AddWithValue(
+            "$updatedAt",
+            DateTime.Now.ToString("O"));
+
+        command.Parameters.AddWithValue("$id", currentAccountId);
+
+        if (command.ExecuteNonQuery() == 0)
+            throw new InvalidOperationException("Cari hesabı bulunamadı.");
+    }
+
+    public static List<CurrentAccountRecord> GetCurrentAccounts(
+        bool includePassive = false)
+    {
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT
+    ca.Id,
+    ca.Name,
+    ca.Phone,
+    ca.Description,
+    ca.IsActive,
+    ca.CreatedAt,
+    COALESCE(
+        SUM(
+            CASE
+                WHEN cat.TransactionType IN ('Borç', 'DüzeltmeBorç')
+                    THEN cat.Amount
+                WHEN cat.TransactionType IN ('Tahsilat', 'DüzeltmeAlacak')
+                    THEN -cat.Amount
+                ELSE 0
+            END
+        ),
+        0
+    ) AS Balance
+FROM CurrentAccounts ca
+LEFT JOIN CurrentAccountTransactions cat
+    ON cat.CurrentAccountId = ca.Id
+WHERE ($includePassive = 1 OR ca.IsActive = 1)
+GROUP BY
+    ca.Id,
+    ca.Name,
+    ca.Phone,
+    ca.Description,
+    ca.IsActive,
+    ca.CreatedAt
+ORDER BY ca.Name COLLATE NOCASE;";
+
+        command.Parameters.AddWithValue(
+            "$includePassive",
+            includePassive ? 1 : 0);
+
+        using var reader = command.ExecuteReader();
+        var result = new List<CurrentAccountRecord>();
+
+        while (reader.Read())
+        {
+            result.Add(new CurrentAccountRecord(
+                reader.GetInt64(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.GetInt64(4) == 1,
+                Convert.ToDecimal(reader.GetDouble(6)),
+                DateTime.Parse(reader.GetString(5))));
+        }
+
+        return result;
+    }
+
+    public static void AddCurrentAccountTransaction(
+        long currentAccountId,
+        string transactionType,
+        decimal amount,
+        string description,
+        string createdBy,
+        long? orderId = null)
+    {
+        transactionType = (transactionType ?? string.Empty).Trim();
+        description = (description ?? string.Empty).Trim();
+        createdBy = (createdBy ?? string.Empty).Trim();
+
+        string[] validTypes =
+        {
+        "Borç",
+        "Tahsilat",
+        "DüzeltmeBorç",
+        "DüzeltmeAlacak"
+    };
+
+        if (!validTypes.Contains(
+                transactionType,
+                StringComparer.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Geçersiz cari hareket türü.");
+        }
+
+        if (amount <= 0)
+            throw new InvalidOperationException(
+                "Cari hareket tutarı sıfırdan büyük olmalıdır.");
+
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO CurrentAccountTransactions
+(
+    CurrentAccountId,
+    TransactionType,
+    Amount,
+    Description,
+    OrderId,
+    CreatedBy,
+    CreatedAt
+)
+SELECT
+    Id,
+    $transactionType,
+    $amount,
+    $description,
+    $orderId,
+    $createdBy,
+    $createdAt
+FROM CurrentAccounts
+WHERE Id = $currentAccountId
+  AND IsActive = 1;";
+
+        command.Parameters.AddWithValue(
+            "$currentAccountId",
+            currentAccountId);
+
+        command.Parameters.AddWithValue(
+            "$transactionType",
+            transactionType);
+
+        command.Parameters.AddWithValue(
+            "$amount",
+            amount);
+
+        command.Parameters.AddWithValue(
+            "$description",
+            description);
+
+        command.Parameters.AddWithValue(
+            "$orderId",
+            orderId.HasValue
+                ? orderId.Value
+                : DBNull.Value);
+
+        command.Parameters.AddWithValue(
+            "$createdBy",
+            createdBy);
+
+        command.Parameters.AddWithValue(
+            "$createdAt",
+            DateTime.Now.ToString("O"));
+
+        if (command.ExecuteNonQuery() == 0)
+        {
+            throw new InvalidOperationException(
+                "Aktif cari hesabı bulunamadığı için hareket kaydedilemedi.");
+        }
+    }
+
+    public static List<CurrentAccountTransactionRecord>
+        GetCurrentAccountTransactions(long currentAccountId)
+    {
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT
+    Id,
+    CurrentAccountId,
+    TransactionType,
+    Amount,
+    Description,
+    OrderId,
+    CreatedBy,
+    CreatedAt
+FROM CurrentAccountTransactions
+WHERE CurrentAccountId = $currentAccountId
+ORDER BY Id DESC;";
+
+        command.Parameters.AddWithValue(
+            "$currentAccountId",
+            currentAccountId);
+
+        using var reader = command.ExecuteReader();
+
+        var result =
+            new List<CurrentAccountTransactionRecord>();
+
+        while (reader.Read())
+        {
+            result.Add(new CurrentAccountTransactionRecord(
+                reader.GetInt64(0),
+                reader.GetInt64(1),
+                reader.GetString(2),
+                Convert.ToDecimal(reader.GetDouble(3)),
+                reader.GetString(4),
+                reader.IsDBNull(5)
+                    ? null
+                    : reader.GetInt64(5),
+                reader.GetString(6),
+                DateTime.Parse(reader.GetString(7))));
+        }
+
+        return result;
+    }
+
 }
 
 
@@ -3472,6 +3859,7 @@ public sealed record DayEndRecord(
     decimal CardTotal,
     decimal MixedTotal)
 {
+
     private static readonly CultureInfo TurkishCulture =
         CultureInfo.GetCultureInfo("tr-TR");
 
@@ -3491,4 +3879,57 @@ public sealed record DayEndRecord(
         $"Nakit: {CashTotal.ToString("N2", TurkishCulture)} ₺   •   " +
         $"Kart: {CardTotal.ToString("N2", TurkishCulture)} ₺   •   " +
         $"Karma: {MixedTotal.ToString("N2", TurkishCulture)} ₺";
+    }
+public sealed record CurrentAccountRecord(
+long Id,
+string Name,
+string Phone,
+string Description,
+bool IsActive,
+decimal Balance,
+DateTime CreatedAt)
+{
+    private static readonly CultureInfo TurkishCulture =
+        CultureInfo.GetCultureInfo("tr-TR");
+
+    public string StatusText =>
+        IsActive ? "Aktif" : "Pasif";
+
+    public string BalanceText =>
+        Balance.ToString("N2", TurkishCulture) + " ₺";
+
+    public string PhoneText =>
+        string.IsNullOrWhiteSpace(Phone)
+            ? "-"
+            : Phone;
+}
+
+public sealed record CurrentAccountTransactionRecord(
+    long Id,
+    long CurrentAccountId,
+    string TransactionType,
+    decimal Amount,
+    string Description,
+    long? OrderId,
+    string CreatedBy,
+    DateTime CreatedAt)
+{
+    private static readonly CultureInfo TurkishCulture =
+        CultureInfo.GetCultureInfo("tr-TR");
+
+    public string AmountText =>
+        Amount.ToString("N2", TurkishCulture) + " ₺";
+
+    public string DateText =>
+        CreatedAt.ToString("dd.MM.yyyy HH:mm");
+
+    public string TypeText =>
+        TransactionType switch
+        {
+            "Borç" => "Borç",
+            "Tahsilat" => "Tahsilat",
+            "DüzeltmeBorç" => "Borç Düzeltmesi",
+            "DüzeltmeAlacak" => "Alacak Düzeltmesi",
+            _ => TransactionType
+        };
 }

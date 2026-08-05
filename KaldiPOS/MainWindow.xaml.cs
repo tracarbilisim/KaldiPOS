@@ -130,6 +130,17 @@ namespace KaldiPOS
                     ? Visibility.Visible
                     : Visibility.Collapsed;
 
+            bool canViewCurrentAccounts =
+    !string.Equals(
+        UserSession.CurrentUser?.Role,
+        "Garson",
+        StringComparison.OrdinalIgnoreCase);
+
+            CurrentAccountsMenuButton.Visibility =
+                canViewCurrentAccounts
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+
             AuditMenuButton.Visibility =
     UserSession.HasPermission("Menu.Audit")
         ? Visibility.Visible
@@ -486,6 +497,7 @@ namespace KaldiPOS
             ProductsMenuText.Visibility = visibility;
             ReportsMenuText.Visibility = visibility;
             EndOfDayMenuText.Visibility = visibility;
+            CurrentAccountsMenuText.Visibility = visibility;
             SettingsMenuText.Visibility = visibility;
             AuditMenuText.Visibility = visibility;
             LogoutMenuText.Visibility = visibility;
@@ -496,13 +508,14 @@ namespace KaldiPOS
         {
             Button[] menuButtons =
             {
-        TablesMenuButton,
-        ProductsMenuButton,
-        ReportsMenuButton,
-        EndOfDayMenuButton,
-        AuditMenuButton,
-        SettingsMenuButton
-    };
+    TablesMenuButton,
+    ProductsMenuButton,
+    ReportsMenuButton,
+    EndOfDayMenuButton,
+    CurrentAccountsMenuButton,
+    AuditMenuButton,
+    SettingsMenuButton
+};
 
             Style primaryStyle =
                 (Style)FindResource("Button.Primary");
@@ -564,6 +577,16 @@ namespace KaldiPOS
                     new DayEndPage(),
                     "Gün Sonu",
                     "Günlük kasa kapanış işlemlerini yönetin");
+                return;
+            }
+
+            if (pageName == "Cari Hesaplar")
+            {
+                ShowPage(
+                    new CurrentAccountsPage(),
+                    "Cari Hesaplar",
+                    "Müşteri borç, tahsilat ve bakiye takibi");
+
                 return;
             }
 

@@ -121,6 +121,31 @@
                         </Grid>
                     </Button>
 
+                    <Button x:Name="CurrentAccountsMenuButton"
+        Tag="Cari Hesaplar"
+        Click="MenuButton_Click"
+        Style="{StaticResource Button.Secondary}"
+        Margin="0,0,0,8">
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Text="₺"
+                   FontSize="19"
+                   FontWeight="Bold"
+                   HorizontalAlignment="Center"/>
+
+                            <TextBlock x:Name="CurrentAccountsMenuText"
+                   Grid.Column="1"
+                   Text="Cari Hesaplar"
+                   VerticalAlignment="Center"
+                   Visibility="Collapsed"/>
+                        </Grid>
+                    </Button>
+
                     <Button x:Name="AuditMenuButton"
         Tag="Denetim"
         Click="MenuButton_Click"
