@@ -99,6 +99,10 @@ namespace KaldiPOS.Views
             _receivedTextBox.TextChanged += ReceivedTextBox_TextChanged;
             content.Children.Add(_receivedTextBox);
 
+            TouchInputService.AttachDecimal(
+                _receivedTextBox,
+                "Alınan Nakit Tutarı");
+
             _receivedTextBox.PreviewTextInput +=
             ReceivedTextBox_PreviewTextInput;
 

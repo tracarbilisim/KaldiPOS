@@ -1,3 +1,4 @@
+using KaldiPOS.Services;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -181,6 +182,10 @@ namespace KaldiPOS.Views
 
             entryPanel.Children.Add(_amountTextBox);
 
+            TouchInputService.AttachDecimal(
+                _amountTextBox,
+                "Parçalı Ödeme Tutarı");
+
             _errorText = new TextBlock
             {
                 Foreground = new SolidColorBrush(
@@ -312,11 +317,6 @@ namespace KaldiPOS.Views
                 Child = root
             };
 
-            Loaded += (_, _) =>
-            {
-                _amountTextBox.Focus();
-                _amountTextBox.SelectAll();
-            };
         }
 
         private void AddPayment(string paymentType)

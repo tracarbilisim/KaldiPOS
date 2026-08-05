@@ -101,17 +101,9 @@ namespace KaldiPOS.Services
             {
                 e.Handled = true;
 
-                decimal initialValue = 0;
-
-                decimal.TryParse(
-                    textBox.Text,
-                    NumberStyles.Number,
-                    CultureInfo.GetCultureInfo("tr-TR"),
-                    out initialValue);
-
                 var numpad = new TouchNumpadWindow(
                     title,
-                    initialValue,
+                    initialValue: 0,
                     allowDecimal)
                 {
                     Owner = Window.GetWindow(textBox)

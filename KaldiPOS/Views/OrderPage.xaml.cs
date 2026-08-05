@@ -13,6 +13,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 
 namespace KaldiPOS.Views
 {
@@ -63,6 +64,44 @@ namespace KaldiPOS.Views
             }
 
             UpdateTotals();
+            ConfigureActionVisibility();
+        }
+
+        private void ConfigureActionVisibility()
+        {
+            bool canTransfer =
+                UserSession.HasPermission("Order.Transfer");
+
+            bool canTakePayment =
+                UserSession.HasPermission("Payment.Cash") ||
+                UserSession.HasPermission("Payment.Card") ||
+                UserSession.HasPermission("Payment.Mixed") ||
+                UserSession.HasPermission("Payment.Close");
+
+            TransferTableButton.Visibility =
+                canTransfer
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+
+            MergeTableButton.Visibility =
+                canTransfer
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+
+            TransferProductButton.Visibility =
+                canTransfer
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+
+            PaymentButton.Visibility =
+                canTakePayment
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+
+            RestrictedActionsPanel.Visibility =
+                canTransfer || canTakePayment
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
         }
 
         private static string GetProductImagePath(string relativeImagePath)
@@ -127,16 +166,42 @@ namespace KaldiPOS.Views
         {
             CategoryPanel.Children.Clear();
 
-            foreach (string category in Database.GetCategories())
-            {
-                Button button =
-                    CreateCategoryButton(category);
+            List<string> categories =
+                Database.GetCategories().ToList();
 
-                CategoryPanel.Children.Add(button);
+            ConfigureCategoryGrid(categories.Count);
+
+            foreach (string category in categories)
+            {
+                CategoryPanel.Children.Add(
+                    CreateCategoryButton(category));
             }
+        
         }
 
+        private void ConfigureCategoryGrid(int categoryCount)
+        {
+            if (categoryCount <= 0)
+            {
+                CategoryPanel.Rows = 1;
+                CategoryPanel.Columns = 1;
+                return;
+            }
 
+            int columns = categoryCount switch
+            {
+                <= 6 => 3,
+                <= 12 => 4,
+                <= 20 => 5,
+                _ => 6
+            };
+
+            int rows = (int)Math.Ceiling(
+                categoryCount / (double)columns);
+
+            CategoryPanel.Columns = columns;
+            CategoryPanel.Rows = rows;
+        }
         private Button CreateCategoryButton(
             string category)
         {
@@ -145,7 +210,9 @@ namespace KaldiPOS.Views
             contentGrid.RowDefinitions.Add(
                 new RowDefinition
                 {
-                    Height = new GridLength(68)
+                    Height = new GridLength(
+                        2,
+                        GridUnitType.Star)
                 });
 
             contentGrid.RowDefinitions.Add(
@@ -221,8 +288,10 @@ namespace KaldiPOS.Views
                 Tag = category,
                 Width = 145,
                 Height = 110,
-                Margin = new Thickness(4),
+                Margin = new Thickness(5),
                 Padding = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
                 Background = new SolidColorBrush(
                     Color.FromRgb(36, 33, 29)),
                 BorderBrush = new SolidColorBrush(
@@ -325,6 +394,89 @@ namespace KaldiPOS.Views
             ApplyProductFilter();
         }
 
+        private void ConfigureProductGrid(int productCount)
+        {
+            int columns;
+            int rows;
+
+            switch (productCount)
+            {
+                case <= 0:
+                    columns = 1;
+                    rows = 1;
+                    break;
+
+                case <= 3:
+                    columns = productCount;
+                    rows = 1;
+                    break;
+
+                case 4:
+                    columns = 2;
+                    rows = 2;
+                    break;
+
+                case <= 6:
+                    columns = 3;
+                    rows = 2;
+                    break;
+
+                case <= 8:
+                    columns = 4;
+                    rows = 2;
+                    break;
+
+                case 9:
+                    columns = 3;
+                    rows = 3;
+                    break;
+
+                case 10:
+                    columns = 5;
+                    rows = 2;
+                    break;
+
+                case <= 12:
+                    columns = 4;
+                    rows = 3;
+                    break;
+
+                case <= 15:
+                    columns = 5;
+                    rows = 3;
+                    break;
+
+                case 16:
+                    columns = 4;
+                    rows = 4;
+                    break;
+
+                case <= 20:
+                    columns = 5;
+                    rows = 4;
+                    break;
+
+                default:
+                    columns = 6;
+                    rows = (int)Math.Ceiling(productCount / 6d);
+                    break;
+            }
+
+            var panelFactory =
+                new FrameworkElementFactory(typeof(UniformGrid));
+
+            panelFactory.SetValue(
+                UniformGrid.ColumnsProperty,
+                columns);
+
+            panelFactory.SetValue(
+                UniformGrid.RowsProperty,
+                rows);
+
+            ProductsItemsControl.ItemsPanel =
+                new ItemsPanelTemplate(panelFactory);
+        }
+
         private void ApplyProductFilter()
         {
             if (string.IsNullOrWhiteSpace(
@@ -355,8 +507,14 @@ namespace KaldiPOS.Views
                         StringComparison.CurrentCultureIgnoreCase));
             }
 
-            ProductsItemsControl.ItemsSource =
+            List<ProductItem> visibleProducts =
                 products.ToList();
+
+            ConfigureProductGrid(
+                visibleProducts.Count);
+
+            ProductsItemsControl.ItemsSource =
+                visibleProducts;
         }
 
         private void ProductButton_Click(object sender, RoutedEventArgs e)
@@ -678,10 +836,21 @@ namespace KaldiPOS.Views
                     item.Quantity,
                     item.Note)));
 
-            //PreparationTicketService.ShowPreview(
-                 //Window.GetWindow(this),
-                    //_tableName,
-                    //preparationItems);
+            PreparationTicketService.ShowPreview(
+                Window.GetWindow(this),
+                _tableName,
+                preparationItems);
+
+            PreparationTicketService.ShowPreview(
+    Window.GetWindow(this),
+    _tableName,
+    preparationItems);
+
+            Database.MarkOpenOrderSent(
+                _tableName);
+
+            foreach (OrderItem item in OrderItems)
+                item.MarkAsSent();
 
             foreach (OrderItem item in OrderItems)
                 item.MarkAsSent();

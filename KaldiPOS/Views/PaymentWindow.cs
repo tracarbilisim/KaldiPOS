@@ -65,7 +65,7 @@ namespace KaldiPOS.Views
             body.ColumnDefinitions.Add(
                 new ColumnDefinition
                 {
-                    Width = new GridLength(1.45, GridUnitType.Star)
+                    Width = new GridLength(1.65, GridUnitType.Star)
                 });
 
             body.ColumnDefinitions.Add(
@@ -77,7 +77,7 @@ namespace KaldiPOS.Views
             body.ColumnDefinitions.Add(
                 new ColumnDefinition
                 {
-                    Width = new GridLength(0.75, GridUnitType.Star)
+                    Width = new GridLength(0.55, GridUnitType.Star)
                 });
 
             var left = new Grid();
@@ -110,7 +110,7 @@ namespace KaldiPOS.Views
             var selectedPanel = new StackPanel();
             selectedPanel.Children.Add(new TextBlock
             {
-                Text = "ŞİMDİ ALINACAK TUTAR",
+                Text = "1. ÖDENECEK TUTARI BELİRLE",
                 FontSize = 14,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Color.FromRgb(189, 183, 173)),
@@ -130,7 +130,7 @@ namespace KaldiPOS.Views
 
             _splitInfoText = new TextBlock
             {
-                Text = "Kalan tutarın tamamı seçili.",
+                Text = "Varsayılan olarak kalan tutarın tamamı seçilidir.",
                 Margin = new Thickness(0, 8, 0, 0),
                 FontSize = 13,
                 Foreground = new SolidColorBrush(Color.FromRgb(189, 183, 173)),
@@ -177,7 +177,7 @@ namespace KaldiPOS.Views
     "Ödeme Tutarı");
 
             var applyAmountButton =
-                CreateActionButton("TUTARI SEÇ", "#73543A");
+                CreateActionButton("UYGULA", "#73543A");
 
             applyAmountButton.Height = 42;
             applyAmountButton.FontSize = 13;
@@ -237,7 +237,7 @@ namespace KaldiPOS.Views
             };
             splitPanel.Children.Add(new TextBlock
             {
-                Text = "EŞİT BÖLÜŞTÜR",
+                Text = "KİŞİ BAŞI EŞİT BÖL",
                 Margin = new Thickness(2, 0, 0, 6),
                 FontSize = 14,
                 FontWeight = FontWeights.Bold,
@@ -264,7 +264,7 @@ namespace KaldiPOS.Views
 
             paymentMethodsPanel.Children.Add(new TextBlock
             {
-                Text = "ÖDEME YÖNTEMİ",
+                Text = "2. ÖDEME YÖNTEMİNİ SEÇ",
                 Margin = new Thickness(2, 0, 0, 10),
                 FontSize = 14,
                 FontWeight = FontWeights.Bold,
@@ -277,7 +277,7 @@ namespace KaldiPOS.Views
             };
 
             _cashButton = CreateActionButton(
-                "NAKİT",
+                "NAKİT ÖDE",
                 "#2F8F57");
 
             _cashButton.Margin = new Thickness(0, 0, 6, 0);
@@ -286,7 +286,7 @@ namespace KaldiPOS.Views
             paymentMethodsGrid.Children.Add(_cashButton);
 
             _cardButton = CreateActionButton(
-                "KART",
+                "KARTLA ÖDE",
                 "#3E72B8");
 
             _cardButton.Margin = new Thickness(6, 0, 6, 0);
@@ -295,7 +295,7 @@ namespace KaldiPOS.Views
             paymentMethodsGrid.Children.Add(_cardButton);
 
             var mixedPaymentButton = CreateActionButton(
-                "PARÇALI / KARMA",
+                "NAKİT + KART",
                 "#8A642F");
 
             mixedPaymentButton.Margin = new Thickness(6, 0, 6, 0);
@@ -322,7 +322,7 @@ namespace KaldiPOS.Views
                     _payments.Add(new PaymentEntry(
                         "Nakit",
                         splitWindow.CashAmount,
-                        "Parçalı / karma ödeme"));
+                        "Nakit + kart ödeme"));
                 }
 
                 if (splitWindow.CardAmount > 0)
@@ -330,7 +330,7 @@ namespace KaldiPOS.Views
                     _payments.Add(new PaymentEntry(
                         "Kart",
                         splitWindow.CardAmount,
-                        "Parçalı / karma ödeme"));
+                        "Nakit + kart ödeme"));
                 }
 
                 CompleteSelectedPart();
@@ -339,15 +339,11 @@ namespace KaldiPOS.Views
             paymentMethodsGrid.Children.Add(mixedPaymentButton);
 
             var productPaymentButton = CreateActionButton(
-                "ÜRÜN SEÇEREK",
+                "ÜRÜN SEÇEREK ÖDE",
                 "#73543A");
 
             productPaymentButton.Margin = new Thickness(6, 0, 0, 0);
             productPaymentButton.FontSize = 14;
-            productPaymentButton.Click += (_, _) =>
-            {
-
-            };
 
             paymentMethodsGrid.Children.Add(productPaymentButton);
 
@@ -390,7 +386,7 @@ namespace KaldiPOS.Views
 
             rightGrid.Children.Add(new TextBlock
             {
-                Text = "BU EKRANDA ALINAN ÖDEMELER",
+                Text = "ALINAN ÖDEMELER",
                 Margin = new Thickness(2, 0, 0, 14),
                 FontSize = 14,
                 FontWeight = FontWeights.Bold,
@@ -454,7 +450,7 @@ namespace KaldiPOS.Views
             });
             titlePanel.Children.Add(new TextBlock
             {
-                Text = "Tam ödeme, kişi başı bölüşüm veya art arda farklı ödeme alabilirsiniz.",
+                Text = "Önce ödenecek tutarı belirleyin, ardından ödeme yöntemini seçin.",
                 Margin = new Thickness(0, 5, 0, 0),
                 FontSize = 13,
                 Foreground = new SolidColorBrush(Color.FromRgb(189, 183, 173))

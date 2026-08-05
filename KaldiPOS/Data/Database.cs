@@ -233,12 +233,29 @@ CREATE TABLE IF NOT EXISTS AppMetadata
         EnsureColumn(connection, "Orders", "BusinessDate", "TEXT");
         EnsureColumn(connection, "Orders", "PaymentType", "TEXT");
         EnsureColumn(connection, "Orders", "TotalAmount", "REAL NOT NULL DEFAULT 0");
+        EnsureColumn(
+    connection,
+    "Orders",
+    "LastOrderAt",
+    "TEXT");
         EnsureColumn(connection, "Orders", "IsCancelled", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, "Orders", "CancelledAt", "TEXT");
         EnsureColumn(connection, "Orders", "CancelledBy", "TEXT");
         EnsureColumn(connection, "Orders", "CancelReason", "TEXT");
         EnsureColumn(connection, "OrderItems", "SentQuantity", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, "OrderItems", "Note", "TEXT NOT NULL DEFAULT ''");
+
+        using (var lastOrderBackfillCommand =
+       connection.CreateCommand())
+        {
+            lastOrderBackfillCommand.CommandText = @"
+UPDATE Orders
+SET LastOrderAt = OpenedAt
+WHERE LastOrderAt IS NULL
+   OR TRIM(LastOrderAt) = '';";
+
+            lastOrderBackfillCommand.ExecuteNonQuery();
+        }
 
         BackfillOrderBusinessDates(connection);
         EnsureActiveBusinessDate(connection);
@@ -515,28 +532,141 @@ WHERE Name = $categoryName;";
     {
         var tables = new List<TableRecord>();
 
-        using var connection = new SqliteConnection(ConnectionString);
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"
-SELECT Id, Name, Hall, Status
-FROM Tables
-WHERE Hall = $hall
-ORDER BY Id;";
-        command.Parameters.AddWithValue("$hall", hall);
 
-        using var reader = command.ExecuteReader();
+        command.CommandText = @"
+SELECT
+    t.Id,
+    t.Name,
+    t.Hall,
+    t.Status,
+    o.OpenedAt,
+    o.LastOrderAt,
+    COALESCE(
+        SUM(oi.Quantity * oi.UnitPrice),
+        0
+    )
+FROM Tables t
+
+LEFT JOIN Orders o
+    ON o.TableId = t.Id
+   AND o.Status = 0
+   AND o.ClosedAt IS NULL
+
+LEFT JOIN OrderItems oi
+    ON oi.OrderId = o.Id
+
+WHERE t.Hall = $hall
+
+GROUP BY
+    t.Id,
+    t.Name,
+    t.Hall,
+    t.Status,
+    o.Id,
+    o.OpenedAt,
+    o.LastOrderAt
+
+ORDER BY t.Id;";
+
+        command.Parameters.AddWithValue(
+            "$hall",
+            hall);
+
+        using var reader =
+            command.ExecuteReader();
+
         while (reader.Read())
         {
+            DateTime? openedAt = null;
+            DateTime? lastOrderAt = null;
+
+            if (!reader.IsDBNull(4) &&
+                DateTime.TryParse(
+                    reader.GetString(4),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out DateTime parsedOpenedAt))
+            {
+                openedAt = parsedOpenedAt;
+            }
+
+            if (!reader.IsDBNull(5) &&
+                DateTime.TryParse(
+                    reader.GetString(5),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out DateTime parsedLastOrderAt))
+            {
+                lastOrderAt = parsedLastOrderAt;
+            }
+
+            decimal currentTotal =
+                reader.IsDBNull(6)
+                    ? 0
+                    : Convert.ToDecimal(
+                        reader.GetDouble(6),
+                        CultureInfo.InvariantCulture);
+
             tables.Add(new TableRecord(
                 reader.GetInt32(0),
                 reader.GetString(1),
                 reader.GetString(2),
-                reader.GetInt32(3)));
+                reader.GetInt32(3),
+                openedAt,
+                lastOrderAt,
+                currentTotal));
         }
 
         return tables;
+    }
+
+    public static void MarkOpenOrderSent(
+    string tableName)
+    {
+        using var connection =
+            new SqliteConnection(ConnectionString);
+
+        connection.Open();
+
+        using var command =
+            connection.CreateCommand();
+
+        command.CommandText = @"
+UPDATE Orders
+SET LastOrderAt = $lastOrderAt
+WHERE Id =
+(
+    SELECT o.Id
+    FROM Orders o
+    INNER JOIN Tables t
+        ON t.Id = o.TableId
+    WHERE t.Name = $tableName
+      AND o.Status = 0
+      AND o.ClosedAt IS NULL
+    ORDER BY o.Id DESC
+    LIMIT 1
+);";
+
+        command.Parameters.AddWithValue(
+            "$lastOrderAt",
+            DateTime.Now.ToString("O"));
+
+        command.Parameters.AddWithValue(
+            "$tableName",
+            tableName);
+
+        if (command.ExecuteNonQuery() == 0)
+        {
+            throw new InvalidOperationException(
+                "Son sipariş zamanı güncellenecek " +
+                "açık adisyon bulunamadı.");
+        }
     }
 
     public static List<SavedOrderItem> LoadOpenOrder(string tableName)
@@ -2327,6 +2457,43 @@ ORDER BY oi.Id;";
                 itemReader.GetString(3)));
         }
 
+        var payments =
+    new List<OrderDetailPayment>();
+
+        using var paymentCommand =
+            connection.CreateCommand();
+
+        paymentCommand.CommandText = @"
+SELECT
+    PaymentType,
+    Amount,
+    COALESCE(Description, ''),
+    CreatedAt
+FROM OrderPayments
+WHERE OrderId = $orderId
+ORDER BY Id;";
+
+        paymentCommand.Parameters.AddWithValue(
+            "$orderId",
+            orderId);
+
+        using var paymentReader =
+            paymentCommand.ExecuteReader();
+
+        while (paymentReader.Read())
+        {
+            payments.Add(new OrderDetailPayment(
+                paymentReader.GetString(0),
+                Convert.ToDecimal(
+                    paymentReader.GetDouble(1),
+                    CultureInfo.InvariantCulture),
+                paymentReader.GetString(2),
+                DateTime.Parse(
+                    paymentReader.GetString(3),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind)));
+        }
+
         return new OrderDetailData(
             id,
             tableName,
@@ -2334,7 +2501,29 @@ ORDER BY oi.Id;";
             closedAt,
             paymentType,
             totalAmount,
-            items);
+            items,
+            payments);
+    }
+
+    public sealed record OrderDetailPayment(
+    string PaymentType,
+    decimal Amount,
+    string Description,
+    DateTime CreatedAt)
+    {
+        private static readonly CultureInfo TurkishCulture =
+            CultureInfo.GetCultureInfo("tr-TR");
+
+        public string AmountText =>
+            Amount.ToString("N2", TurkishCulture) + " ₺";
+
+        public string CreatedAtText =>
+            CreatedAt.ToString("HH:mm");
+
+        public string DescriptionText =>
+            string.IsNullOrWhiteSpace(Description)
+                ? "-"
+                : Description;
     }
 
     public sealed record OrderDetailItem(
@@ -2366,7 +2555,8 @@ ORDER BY oi.Id;";
         DateTime? ClosedAt,
         string PaymentType,
         decimal TotalAmount,
-        List<OrderDetailItem> Items)
+        List<OrderDetailItem> Items,
+        List<OrderDetailPayment> Payments)
     {
         private static readonly CultureInfo TurkishCulture =
             CultureInfo.GetCultureInfo("tr-TR");
@@ -3732,7 +3922,10 @@ public sealed record TableRecord(
     int Id,
     string Name,
     string Hall,
-    int Status);
+    int Status,
+    DateTime? OpenedAt,
+    DateTime? LastOrderAt,
+    decimal CurrentTotal);
 
 public sealed class KaldiMenuData
 {

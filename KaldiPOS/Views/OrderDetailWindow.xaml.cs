@@ -67,6 +67,9 @@ namespace KaldiPOS.Views
 
             ItemsListView.ItemsSource =
                 detail.Items;
+
+            PaymentsListView.ItemsSource =
+                detail.Payments;
         }
 
         private void CloseButton_Click(

@@ -3,11 +3,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Adisyon Detayı"
         Width="580"
-        Height="470"
+        Height="670"
         MinWidth="580"
-        MinHeight="470"
+        MinHeight="670"
         MaxWidth="580"
-        MaxHeight="470"
+        MaxHeight="670"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
         ResizeMode="NoResize"
@@ -153,10 +153,11 @@
         <Grid>
 
             <Grid.RowDefinitions>
-                <RowDefinition Height="64"/>
+                <RowDefinition Height="58"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="64"/>
+                <RowDefinition Height="190"/>
+                <RowDefinition Height="54"/>
             </Grid.RowDefinitions>
 
             <!-- Özel Başlık Alanı -->
@@ -376,7 +377,7 @@
                                         Value="0"/>
 
                                 <Setter Property="Margin"
-                                        Value="0,0,0,4"/>
+                                        Value="0,0,0,3"/>
 
                                 <Setter Property="Background"
                                         Value="Transparent"/>
@@ -457,8 +458,152 @@
 
             </Border>
 
+            <!-- Ödeme Detayları -->
+            <Border Grid.Row="3"
+        Margin="18,12,18,0"
+        CornerRadius="9"
+        Background="#211E1A"
+        BorderBrush="#514022"
+        BorderThickness="1">
+
+                <Grid>
+
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="36"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Background="#29251F"
+                CornerRadius="8,8,0,0">
+
+                        <Grid Margin="13,0">
+
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="110"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Text="ÖDEME TÜRÜ"
+                           VerticalAlignment="Center"
+                           FontSize="11"
+                           FontWeight="Bold"
+                           Foreground="#938B80"/>
+
+                            <TextBlock Grid.Column="1"
+                           Text="AÇIKLAMA / ÜRÜNLER"
+                           VerticalAlignment="Center"
+                           FontSize="11"
+                           FontWeight="Bold"
+                           Foreground="#938B80"/>
+
+                            <TextBlock Grid.Column="2"
+                           Text="SAAT"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontSize="11"
+                           FontWeight="Bold"
+                           Foreground="#938B80"/>
+
+                            <TextBlock Grid.Column="3"
+                           Text="TUTAR"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center"
+                           FontSize="11"
+                           FontWeight="Bold"
+                           Foreground="#938B80"/>
+
+                        </Grid>
+
+                    </Border>
+
+                    <ListView x:Name="PaymentsListView"
+                  Grid.Row="1"
+                  Margin="7"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Foreground="White"
+                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+
+                        <ListView.ItemContainerStyle>
+
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment"
+                            Value="Stretch"/>
+                                <Setter Property="Padding"
+                            Value="0"/>
+                                <Setter Property="Margin"
+                            Value="0,0,0,4"/>
+                                <Setter Property="Background"
+                            Value="Transparent"/>
+                                <Setter Property="BorderThickness"
+                            Value="0"/>
+                                <Setter Property="Focusable"
+                            Value="False"/>
+                            </Style>
+
+                        </ListView.ItemContainerStyle>
+
+                        <ListView.ItemTemplate>
+
+                            <DataTemplate>
+
+                                <Border Padding="10,5"
+                                        CornerRadius="6"
+                                        Background="#29251F">
+
+                                    <Grid>
+
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="110"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Text="{Binding PaymentType}"
+                                       VerticalAlignment="Center"
+                                       FontWeight="Bold"
+                                       Foreground="#D4A64F"/>
+
+                                        <TextBlock Grid.Column="1"
+                                       Text="{Binding DescriptionText}"
+                                       Margin="6,0"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="#C9C2B7"/>
+
+                                        <TextBlock Grid.Column="2"
+                                       Text="{Binding CreatedAtText}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="#AAA297"/>
+
+                                        <TextBlock Grid.Column="3"
+                                       Text="{Binding AmountText}"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       FontWeight="Bold"
+                                       Foreground="#56D47E"/>
+
+                                    </Grid>
+
+                                </Border>
+
+                            </DataTemplate>
+
+                        </ListView.ItemTemplate>
+
+                    </ListView>
+
+                </Grid>
+
+            </Border>
+
             <!-- Alt Alan -->
-            <Grid Grid.Row="3"
+            <Grid Grid.Row="4"
                   Margin="18,0">
 
                 <Grid.ColumnDefinitions>

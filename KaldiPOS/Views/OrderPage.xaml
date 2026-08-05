@@ -204,10 +204,12 @@
             Click="BackButton_Click"/>
                     </Grid>
 
-                    <WrapPanel x:Name="CategoryPanel"
-           Grid.Row="1"
-           HorizontalAlignment="Left"
-           VerticalAlignment="Top"/>
+                    <UniformGrid x:Name="CategoryPanel"
+             Grid.Row="1"
+             Rows="1"
+             Columns="1"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch"/>
                 </Grid>
             </Border>
 
@@ -314,17 +316,19 @@
                 CornerRadius="12">
 
                         <ItemsControl x:Name="ProductsItemsControl">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
 
-                            <ItemsControl.ItemTemplate>
+                        <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                <Button Width="140"
-                                        Height="118"
-                                        Margin="4"
+                                <Button Margin="5"
+                                        MinWidth="110"
+                                        MinHeight="95"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
                                         Padding="0"
                                         Tag="{Binding}"
                                         Background="#211E1A"
@@ -342,12 +346,12 @@
                                                 CornerRadius="10">
 
                                                     <Grid>
-                                                        <Grid.RowDefinitions>
-                                                            <RowDefinition Height="68"/>
-                                                            <RowDefinition Height="*"/>
-                                                        </Grid.RowDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="2*"/>
+                                                        <RowDefinition Height="*"/>
+                                                    </Grid.RowDefinitions>
 
-                                                        <Border Margin="5"
+                                                    <Border Margin="5"
                                                         Background="#12110F"
                                                         CornerRadius="7"
                                                         ClipToBounds="True">
@@ -432,13 +436,7 @@
                     <RowDefinition Height="52"/>
                     <RowDefinition Height="38"/>
                     <RowDefinition Height="6"/>
-                    <RowDefinition Height="36"/>
-                    <RowDefinition Height="6"/>
-                    <RowDefinition Height="36"/>
-                    <RowDefinition Height="6"/>
-                    <RowDefinition Height="36"/>
-                    <RowDefinition Height="6"/>
-                    <RowDefinition Height="38"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0">
@@ -470,7 +468,7 @@
 
                 <ListBox x:Name="OrderListBox"
          Grid.Row="1"
-         Margin="0,8,0,10"
+         Margin="0,6,0,7"
          Padding="0,0,4,0"
          ItemsSource="{Binding OrderItems}"
          Background="Transparent"
@@ -487,7 +485,7 @@
                         <Style TargetType="ListBoxItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                             <Setter Property="Padding" Value="0"/>
-                            <Setter Property="Margin" Value="0,0,0,5"/>
+                            <Setter Property="Margin" Value="0,0,0,3"/>
                             <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="BorderThickness" Value="0"/>
                             <Setter Property="Focusable" Value="False"/>
@@ -496,9 +494,9 @@
 
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Padding="7,6"
-                BorderThickness="1"
-                CornerRadius="7">
+                            <Border Padding="6,4"
+                                    BorderThickness="1"
+                                    CornerRadius="7">
 
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -614,7 +612,7 @@
 
                                     <!-- Alt satır -->
                                     <Grid Grid.Row="1"
-      Margin="85,4,0,0">
+                                          Margin="85,2,0,0">
 
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -629,12 +627,29 @@
                    Foreground="#E2B85F"/>
 
                                             <TextBlock Text="{Binding NoteDisplay}"
-                   Margin="0,2,0,0"
-                   FontSize="9.5"
-                   FontStyle="Italic"
-                   Foreground="#BDB7AD"
-                   TextTrimming="CharacterEllipsis"
-                   ToolTip="{Binding NoteDisplay}"/>
+           Margin="0,2,0,0"
+           FontSize="9.5"
+           FontStyle="Italic"
+           Foreground="#BDB7AD"
+           TextTrimming="CharacterEllipsis"
+           ToolTip="{Binding NoteDisplay}">
+
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility"
+                                                                Value="Visible"/>
+
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasNote}"
+                                                                         Value="False">
+                                                                <Setter Property="Visibility"
+                                                                        Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+
+                                            </TextBlock>
                                         </StackPanel>
 
                                         <Button Grid.Column="1"
@@ -698,41 +713,49 @@
         Style="{StaticResource ActionButtonStyle}"
         Click="SendOrderButton_Click"/>
 
-                <Button Grid.Row="6"
-        Height="36"
-        Content="Masayı Aktar"
-        Background="#2A2722"
-        BorderBrush="#765A32"
-        Foreground="#E2BE79"
-        Style="{StaticResource ActionButtonStyle}"
-        Click="TransferTableButton_Click"/>
+                <StackPanel x:Name="RestrictedActionsPanel"
+            Grid.Row="6">
 
-                <Button Grid.Row="8"
-        Height="36"
-        Content="Masa Birleştir"
-        Background="#2A2722"
-        BorderBrush="#8A5A3B"
-        Foreground="#E2BE79"
-        Style="{StaticResource ActionButtonStyle}"
-        Click="MergeTableButton_Click"/>
+                    <Button x:Name="TransferTableButton"
+            Height="36"
+            Margin="0,0,0,6"
+            Content="Masayı Aktar"
+            Background="#2A2722"
+            BorderBrush="#765A32"
+            Foreground="#E2BE79"
+            Style="{StaticResource ActionButtonStyle}"
+            Click="TransferTableButton_Click"/>
 
-                <Button Grid.Row="10"
-        Height="36"
-        Content="Ürün Aktar"
-        Background="#2A2722"
-        BorderBrush="#765A32"
-        Foreground="#E2BE79"
-        Style="{StaticResource ActionButtonStyle}"
-        Click="TransferProductButton_Click"/>
+                    <Button x:Name="MergeTableButton"
+            Height="36"
+            Margin="0,0,0,6"
+            Content="Masa Birleştir"
+            Background="#2A2722"
+            BorderBrush="#8A5A3B"
+            Foreground="#E2BE79"
+            Style="{StaticResource ActionButtonStyle}"
+            Click="MergeTableButton_Click"/>
 
-                <Button Grid.Row="12"
-        Height="38"
-        Content="Ödeme Al"
-        Background="#211E1A"
-        BorderBrush="#765A32"
-        Foreground="#FFFDF8"
-        Style="{StaticResource ActionButtonStyle}"
-        Click="PaymentButton_Click"/>
+                    <Button x:Name="TransferProductButton"
+            Height="36"
+            Margin="0,0,0,6"
+            Content="Ürün Aktar"
+            Background="#2A2722"
+            BorderBrush="#765A32"
+            Foreground="#E2BE79"
+            Style="{StaticResource ActionButtonStyle}"
+            Click="TransferProductButton_Click"/>
+
+                    <Button x:Name="PaymentButton"
+            Height="38"
+            Content="Ödeme Al"
+            Background="#211E1A"
+            BorderBrush="#765A32"
+            Foreground="#FFFDF8"
+            Style="{StaticResource ActionButtonStyle}"
+            Click="PaymentButton_Click"/>
+
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

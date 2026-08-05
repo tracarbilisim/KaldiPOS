@@ -1,15 +1,17 @@
-﻿using KaldiPOS.Services;
+﻿using KaldiPOS.Data;
+using KaldiPOS.Services;
+using KaldiPOS.Views;
 using System;
-using System.Text.Json;
+using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Navigation;
 using System.Windows.Threading;
-using KaldiPOS.Data;
-using KaldiPOS.Views;
 
 namespace KaldiPOS
 {
@@ -28,6 +30,34 @@ namespace KaldiPOS
         private bool _suppressTableClick;
         private DateTime? _lastAutomaticDayEndDate;
         private DateTime? _lastAutomaticDayEndWarningDate;
+        private readonly Dictionary<int, TableLiveCard>
+            _tableLiveCards = new();
+
+        private sealed class TableLiveCard
+        {
+            public required DateTime OpenedAt { get; init; }
+
+            public required Button TableButton
+            {
+                get;
+                init;
+            }
+
+            public required DateTime LastOrderAt { get; init; }
+
+            public required TextBlock OpenDurationText
+            {
+                get;
+                init;
+            }
+
+            public required TextBlock LastOrderText
+            {
+                get;
+                init;
+            }
+
+        }
 
         private AppSettings LoadAppSettings()
         {
@@ -174,6 +204,7 @@ namespace KaldiPOS
             EventArgs e)
         {
             UpdateClock();
+            UpdateTableLiveDetails();
 
             DateTime now = DateTime.Now;
             AppSettings settings = LoadAppSettings();
@@ -370,52 +401,227 @@ namespace KaldiPOS
         private void LoadTables()
         {
             TablesPanel.Children.Clear();
+            _tableLiveCards.Clear();
 
-            foreach (TableRecord table in Database.GetTables("Salon"))
+            foreach (TableRecord table
+                     in Database.GetTables("Salon"))
             {
-                bool isOpen = table.Status == 1;
+                bool isOpen =
+                    table.Status == 1 &&
+                    table.OpenedAt.HasValue;
 
                 TextBlock tableName = new()
                 {
+                    TextAlignment = TextAlignment.Center,
                     Text = table.Name.ToUpperInvariant(),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    FontSize = 14,
-                    FontWeight = FontWeights.SemiBold,
+                    HorizontalAlignment =
+                        HorizontalAlignment.Center,
+                    FontSize = 12,
+                    FontWeight = FontWeights.Bold,
                     Foreground = Brushes.White
                 };
 
-                TextBlock tableStatus = new()
+                Border openIndicator = new()
                 {
-                    Text = isOpen ? "Açık" : "Boş",
-                    Margin = new Thickness(0, 3, 0, 0),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    FontSize = 12,
-                    FontWeight = FontWeights.SemiBold,
-                    Foreground = isOpen
-                        ? new SolidColorBrush(Color.FromRgb(226, 190, 121))
-                        : new SolidColorBrush(Color.FromRgb(95, 182, 122))
+                    Width = 5,
+                    Height = 48,
+                    Margin = new Thickness(0, 0, 5, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Background = new SolidColorBrush(
+                        Color.FromRgb(88, 200, 120)),
+                    CornerRadius = new CornerRadius(3),
+                    Visibility = isOpen
+                        ? Visibility.Visible
+                        : Visibility.Collapsed
                 };
 
-                StackPanel content = new()
+                TextBlock openDurationText = new()
                 {
-                    VerticalAlignment = VerticalAlignment.Center
+                    Width = 66,
+                    Margin = new Thickness(0, 1, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextAlignment = TextAlignment.Center,
+                    FontFamily = new FontFamily("Consolas"),
+                    FontSize = 14,
+                    FontWeight = FontWeights.ExtraBold,
+                    Foreground = Brushes.White,
+                    Visibility = isOpen
+                        ? Visibility.Visible
+                        : Visibility.Collapsed
                 };
-                content.Children.Add(tableName);
-                content.Children.Add(tableStatus);
+
+                TextBlock lastOrderText = new()
+                {
+                    Width = 72,
+                    Margin = new Thickness(0),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextAlignment = TextAlignment.Center,
+                    FontFamily = new FontFamily("Consolas"),
+                    FontSize = 9.5,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(
+                        Color.FromRgb(220, 214, 203)),
+                    Visibility = isOpen
+                        ? Visibility.Visible
+                        : Visibility.Collapsed
+                };
+
+                TextBlock totalText = new()
+                {
+                    TextAlignment = TextAlignment.Center,
+
+                    Text = "₺ " + table.CurrentTotal.ToString(
+                        "N2",
+                        CultureInfo.GetCultureInfo("tr-TR")),
+
+                    Margin = new Thickness(0, 3, 0, 0),
+
+                    HorizontalAlignment =
+                        HorizontalAlignment.Center,
+
+                    FontFamily =
+                        new FontFamily("Consolas"),
+
+                    FontSize = 13,
+
+                    FontWeight =
+                        FontWeights.Black,
+
+                    Foreground =
+                        new SolidColorBrush(
+                            Color.FromRgb(60, 255, 120)),
+
+                    Visibility = isOpen
+                        ? Visibility.Visible
+                        : Visibility.Collapsed
+                };
+
+                StackPanel informationPanel = new()
+                {
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Stretch
+                };
+
+                informationPanel.Children.Add(tableName);
+
+                if (isOpen)
+                {
+                    informationPanel.Children.Add(
+                        openDurationText);
+
+                    informationPanel.Children.Add(
+                        lastOrderText);
+
+                    informationPanel.Children.Add(
+                        totalText);
+                }
+                else
+                {
+                    informationPanel.Children.Add(
+                        new TextBlock
+                        {
+                            Text = "BOŞ",
+                            Margin = new Thickness(0, 2, 0, 0),
+                            HorizontalAlignment =
+                                HorizontalAlignment.Center,
+                            FontSize = 8.5,
+                            FontWeight = FontWeights.Bold,
+                            Foreground =
+                                new SolidColorBrush(
+                                    Color.FromRgb(88, 200, 120))
+                        });
+                }
+
+                Grid content = new()
+                {
+                    VerticalAlignment =
+                        VerticalAlignment.Center
+                };
+
+                content.ColumnDefinitions.Add(
+                    new ColumnDefinition
+                    {
+                        Width = new GridLength(18)
+                    });
+
+                content.ColumnDefinitions.Add(
+                    new ColumnDefinition
+                    {
+                        Width = new GridLength(
+                            1,
+                            GridUnitType.Star)
+                    });
+
+                if (isOpen)
+                {
+                    Grid.SetColumn(
+                        openIndicator,
+                        0);
+
+                    content.Children.Add(
+                        openIndicator);
+                }
+
+                Grid.SetColumn(
+                    informationPanel,
+                    1);
+
+                content.Children.Add(
+                    informationPanel);
 
                 Button button = new()
                 {
+
+                    Padding = new Thickness(3, 1, 3, 1),
+                    HorizontalContentAlignment =
+                    HorizontalAlignment.Stretch,
                     Margin = new Thickness(4),
-                    Padding = new Thickness(4),
-                    MinWidth = 72,
-                    MinHeight = 66,
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                    MinWidth = 82,
+                    MinHeight = 80,
                     Tag = table,
                     Content = content,
-                    Style = (Style)FindResource(
-                        isOpen ? "Button.Primary" : "Button.Secondary")
+                    Style = (Style)FindResource("Button.Secondary"),
+                    Background = isOpen
+                    ? new SolidColorBrush(
+                    Color.FromRgb(39, 51, 43))
+                    : new SolidColorBrush(
+                    Color.FromRgb(35, 31, 27)),
+                    BorderBrush = isOpen
+                        ? new SolidColorBrush(
+                            Color.FromRgb(226, 184, 95))
+                        : new SolidColorBrush(
+                            Color.FromRgb(102, 75, 38)),
+                    BorderThickness = isOpen
+                        ? new Thickness(2)
+                        : new Thickness(1)
                 };
 
+                if (isOpen)
+                {
+                    DateTime openedAt =
+                        table.OpenedAt!.Value;
+
+                    DateTime lastOrderAt =
+                        table.LastOrderAt
+                        ?? openedAt;
+
+                    _tableLiveCards[table.Id] =
+                        new TableLiveCard
+                        {
+                            OpenedAt = openedAt,
+                            LastOrderAt = lastOrderAt,
+                            OpenDurationText =
+                                openDurationText,
+                            LastOrderText =
+                                lastOrderText,
+                            TableButton =
+                                button
+                        };
+                }
+
                 button.Click += TableButton_Click;
+
                 button.PreviewMouseLeftButtonDown +=
                     TableButton_PreviewMouseLeftButtonDown;
 
@@ -435,8 +641,129 @@ namespace KaldiPOS
 
                 button.PreviewDrop +=
                     TableButton_Drop;
+
                 TablesPanel.Children.Add(button);
             }
+
+            UpdateTableLiveDetails();
+        }
+
+        private void UpdateTableLiveDetails()
+        {
+            DateTime now = DateTime.Now;
+
+            foreach (TableLiveCard card
+                     in _tableLiveCards.Values)
+            {
+                TimeSpan openDuration =
+                    now - card.OpenedAt;
+
+                TimeSpan lastOrderDuration =
+                    now - card.LastOrderAt;
+
+                if (openDuration < TimeSpan.Zero)
+                    openDuration = TimeSpan.Zero;
+
+                if (lastOrderDuration < TimeSpan.Zero)
+                    lastOrderDuration = TimeSpan.Zero;
+
+                card.OpenDurationText.Text =
+                    FormatLiveDuration(openDuration);
+
+                card.LastOrderText.Text =
+                    "Son: " +
+                    FormatShortDuration(
+                        lastOrderDuration);
+
+                Brush durationBrush =
+                    GetDurationBrush(openDuration);
+
+                card.OpenDurationText.Foreground =
+                    durationBrush;
+
+                card.TableButton.Background =
+                     GetTableBackgroundBrush(
+                                    openDuration);
+
+            }
+        }
+
+        private static string FormatLiveDuration(
+            TimeSpan duration)
+        {
+            int totalHours =
+                (int)duration.TotalHours;
+
+            return
+                $"{totalHours:00}:" +
+                $"{duration.Minutes:00}:" +
+                $"{duration.Seconds:00}";
+        }
+
+        private static string FormatShortDuration(
+            TimeSpan duration)
+        {
+            if (duration.TotalHours >= 1)
+            {
+                return
+                    $"{(int)duration.TotalHours:00}:" +
+                    $"{duration.Minutes:00}:" +
+                    $"{duration.Seconds:00}";
+            }
+
+            return
+                $"{duration.Minutes:00}:" +
+                $"{duration.Seconds:00}";
+        }
+
+        private static Brush GetDurationBrush(
+            TimeSpan duration)
+        {
+            if (duration < TimeSpan.FromMinutes(30))
+            {
+                return new SolidColorBrush(
+                    Color.FromRgb(88, 200, 120));
+            }
+
+            if (duration < TimeSpan.FromHours(1))
+            {
+                return new SolidColorBrush(
+                    Color.FromRgb(226, 184, 95));
+            }
+
+            if (duration < TimeSpan.FromMinutes(90))
+            {
+                return new SolidColorBrush(
+                    Color.FromRgb(224, 139, 68));
+            }
+
+            return new SolidColorBrush(
+                Color.FromRgb(226, 92, 99));
+        }
+
+        private static Brush GetTableBackgroundBrush(
+    TimeSpan duration)
+        {
+            if (duration < TimeSpan.FromMinutes(30))
+            {
+                return new SolidColorBrush(
+                    Color.FromRgb(45, 58, 49));
+            }
+
+            if (duration < TimeSpan.FromHours(1))
+            {
+                return new SolidColorBrush(
+                    Color.FromRgb(53, 46, 34));
+            }
+
+            if (duration < TimeSpan.FromMinutes(90))
+            {
+                return new SolidColorBrush(
+                    Color.FromRgb(58, 40, 31));
+            }
+
+            return new SolidColorBrush(
+                Color.FromRgb(57, 33, 35));
         }
 
         private void WaiterBackToTablesButton_Click(
