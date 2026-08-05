@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -13,11 +14,17 @@ namespace KaldiPOS.Views
     {
         private readonly List<ProductPaymentUnit> _availableUnits;
         private readonly List<ProductPaymentUnit> _selectedUnits = new();
+        private readonly Queue<decimal> _equalSplitParts = new();
+        private readonly List<string> _completedPaymentParts = new();
+
+        private int _splitPersonCount;
+        private int _splitCurrentPerson;
 
         private readonly StackPanel _availableList;
         private readonly StackPanel _selectedList;
         private readonly TextBlock _selectedTotalText;
         private readonly TextBlock _selectedCountText;
+        private readonly TextBlock _splitInfoText;
         private readonly Button _cashButton;
         private readonly Button _cardButton;
         private readonly Button _splitButton;
@@ -154,6 +161,18 @@ namespace KaldiPOS.Views
                 Margin = new Thickness(0, 18, 0, 0)
             };
 
+            bottomGrid.RowDefinitions.Add(
+    new RowDefinition
+    {
+        Height = GridLength.Auto
+    });
+
+            bottomGrid.RowDefinitions.Add(
+                new RowDefinition
+                {
+                    Height = GridLength.Auto
+                });
+
             bottomGrid.ColumnDefinitions.Add(new ColumnDefinition
             {
                 Width = new GridLength(280)
@@ -163,6 +182,51 @@ namespace KaldiPOS.Views
                 Width = new GridLength(18)
             });
             bottomGrid.ColumnDefinitions.Add(new ColumnDefinition());
+
+            var equalSplitPanel = new StackPanel
+            {
+                Margin = new Thickness(0, 0, 0, 14)
+            };
+
+            equalSplitPanel.Children.Add(new TextBlock
+            {
+                Text = "SEÇİLEN ÜRÜNLERİ EŞİT BÖLÜŞTÜR",
+                Margin = new Thickness(2, 0, 0, 7),
+                FontSize = 13,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White
+            });
+
+            var equalSplitGrid = new UniformGrid
+            {
+                Columns = 6
+            };
+
+            for (int count = 2; count <= 7; count++)
+            {
+                int personCount = count;
+
+                Button splitPersonButton =
+                    CreateButton($"1/{personCount}", "#4C4132");
+
+                splitPersonButton.Height = 44;
+                splitPersonButton.Margin = new Thickness(
+                    personCount == 2 ? 0 : 5,
+                    0,
+                    personCount == 7 ? 0 : 5,
+                    0);
+
+                splitPersonButton.Click += (_, _) =>
+                    StartEqualSplit(personCount);
+
+                equalSplitGrid.Children.Add(splitPersonButton);
+            }
+
+            equalSplitPanel.Children.Add(equalSplitGrid);
+
+            Grid.SetRow(equalSplitPanel, 0);
+            Grid.SetColumnSpan(equalSplitPanel, 3);
+            bottomGrid.Children.Add(equalSplitPanel);
 
             var summaryBorder = new Border
             {
@@ -196,10 +260,22 @@ namespace KaldiPOS.Views
                     Color.FromRgb(226, 184, 95))
             };
 
+            _splitInfoText = new TextBlock
+            {
+                Text = "Seçilen ürünlerin tamamı ödenecek.",
+                Margin = new Thickness(0, 7, 0, 0),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(
+                    Color.FromRgb(189, 183, 173))
+            };
+
             summaryPanel.Children.Add(_selectedCountText);
             summaryPanel.Children.Add(_selectedTotalText);
+            summaryPanel.Children.Add(_splitInfoText);
             summaryBorder.Child = summaryPanel;
 
+            Grid.SetRow(summaryBorder, 1);
             Grid.SetColumn(summaryBorder, 0);
             bottomGrid.Children.Add(summaryBorder);
 
@@ -227,6 +303,7 @@ namespace KaldiPOS.Views
             Grid.SetColumn(_splitButton, 2);
             paymentButtons.Children.Add(_splitButton);
 
+            Grid.SetRow(paymentButtons, 1);
             Grid.SetColumn(paymentButtons, 2);
             bottomGrid.Children.Add(paymentButtons);
 
@@ -323,20 +400,46 @@ namespace KaldiPOS.Views
             _availableList.Children.Clear();
             _selectedList.Children.Clear();
 
-            foreach (ProductPaymentUnit unit in _availableUnits)
+            var availableGroups = _availableUnits
+                .GroupBy(unit => new
+                {
+                    unit.ProductId,
+                    unit.Name,
+                    unit.UnitPrice
+                })
+                .OrderBy(group => group.Key.Name);
+
+            foreach (var group in availableGroups)
             {
                 _availableList.Children.Add(
-                    CreateProductButton(
-                        unit,
-                        () => MoveToSelected(unit)));
+                    CreateGroupedProductButton(
+                        group.Key.Name,
+                        group.Key.UnitPrice,
+                        group.Count(),
+                        () => MoveOneToSelected(
+                            group.Key.ProductId,
+                            group.Key.UnitPrice)));
             }
 
-            foreach (ProductPaymentUnit unit in _selectedUnits)
+            var selectedGroups = _selectedUnits
+                .GroupBy(unit => new
+                {
+                    unit.ProductId,
+                    unit.Name,
+                    unit.UnitPrice
+                })
+                .OrderBy(group => group.Key.Name);
+
+            foreach (var group in selectedGroups)
             {
                 _selectedList.Children.Add(
-                    CreateProductButton(
-                        unit,
-                        () => MoveToAvailable(unit)));
+                    CreateGroupedProductButton(
+                        group.Key.Name,
+                        group.Key.UnitPrice,
+                        group.Count(),
+                        () => MoveOneToAvailable(
+                            group.Key.ProductId,
+                            group.Key.UnitPrice)));
             }
 
             _selectedCountText.Text =
@@ -345,6 +448,20 @@ namespace KaldiPOS.Views
             _selectedTotalText.Text =
                 FormatMoney(SelectedTotal);
 
+            if (_equalSplitParts.Count > 0)
+            {
+                _splitInfoText.Text =
+                    $"{_splitCurrentPerson}. kişi / " +
+                    $"{_splitPersonCount} kişi\n" +
+                    $"Şimdi ödenecek: " +
+                    $"{FormatMoney(_equalSplitParts.Peek())}";
+            }
+            else
+            {
+                _splitInfoText.Text =
+                    "Seçilen ürünlerin tamamı ödenecek.";
+            }
+
             bool canPay = _selectedUnits.Count > 0;
 
             SetButtonEnabled(_cashButton, canPay);
@@ -352,46 +469,66 @@ namespace KaldiPOS.Views
             SetButtonEnabled(_splitButton, canPay);
         }
 
-        private Button CreateProductButton(
-            ProductPaymentUnit unit,
+        private Button CreateGroupedProductButton(
+            string productName,
+            decimal unitPrice,
+            int quantity,
             Action clickAction)
         {
             var contentGrid = new Grid();
 
-            contentGrid.ColumnDefinitions.Add(new ColumnDefinition());
-            contentGrid.ColumnDefinitions.Add(new ColumnDefinition
-            {
-                Width = GridLength.Auto
-            });
+            contentGrid.ColumnDefinitions.Add(
+                new ColumnDefinition());
 
-            contentGrid.Children.Add(new TextBlock
+            contentGrid.ColumnDefinitions.Add(
+                new ColumnDefinition
+                {
+                    Width = GridLength.Auto
+                });
+
+            var namePanel = new StackPanel
             {
-                Text = unit.Name,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            namePanel.Children.Add(new TextBlock
+            {
+                Text = productName,
                 FontSize = 15,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = Brushes.White,
-                VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis
             });
 
-            var priceText = new TextBlock
+            namePanel.Children.Add(new TextBlock
             {
-                Text = FormatMoney(unit.UnitPrice),
+                Text = $"{quantity} adet × {FormatMoney(unitPrice)}",
+                Margin = new Thickness(0, 3, 0, 0),
+                FontSize = 12,
+                Foreground = new SolidColorBrush(
+                    Color.FromRgb(189, 183, 173))
+            });
+
+            contentGrid.Children.Add(namePanel);
+
+            var totalText = new TextBlock
+            {
+                Text = FormatMoney(unitPrice * quantity),
                 Margin = new Thickness(12, 0, 0, 0),
-                FontSize = 15,
+                FontSize = 16,
                 FontWeight = FontWeights.Bold,
                 Foreground = new SolidColorBrush(
                     Color.FromRgb(226, 184, 95)),
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            Grid.SetColumn(priceText, 1);
-            contentGrid.Children.Add(priceText);
+            Grid.SetColumn(totalText, 1);
+            contentGrid.Children.Add(totalText);
 
             var button = new Button
             {
                 Content = contentGrid,
-                Height = 50,
+                Height = 62,
                 Margin = new Thickness(0, 0, 0, 8),
                 Padding = new Thickness(14, 0, 14, 0),
                 HorizontalContentAlignment =
@@ -405,21 +542,150 @@ namespace KaldiPOS.Views
             };
 
             button.Click += (_, _) => clickAction();
+
             return button;
         }
 
-        private void MoveToSelected(ProductPaymentUnit unit)
+        private void MoveOneToSelected(
+            int productId,
+            decimal unitPrice)
         {
+            ProductPaymentUnit? unit =
+                _availableUnits.FirstOrDefault(item =>
+                    item.ProductId == productId &&
+                    item.UnitPrice == unitPrice);
+
+            if (_equalSplitParts.Count > 0)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    this,
+                    "Bölüşüm Devam Ediyor",
+                    "Eşit bölüştürme başladıktan sonra ürün seçimi değiştirilemez.");
+
+                return;
+            }
+
+            if (unit is null)
+                return;
+
             _availableUnits.Remove(unit);
             _selectedUnits.Add(unit);
+
             RefreshScreen();
         }
 
-        private void MoveToAvailable(ProductPaymentUnit unit)
+        private void MoveOneToAvailable(
+            int productId,
+            decimal unitPrice)
         {
+            ProductPaymentUnit? unit =
+                _selectedUnits.FirstOrDefault(item =>
+                    item.ProductId == productId &&
+                    item.UnitPrice == unitPrice);
+
+            if (_equalSplitParts.Count > 0)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    this,
+                    "Bölüşüm Devam Ediyor",
+                    "Eşit bölüştürme başladıktan sonra ürün seçimi değiştirilemez.");
+
+                return;
+            }
+
+            if (unit is null)
+                return;
+
             _selectedUnits.Remove(unit);
             _availableUnits.Add(unit);
+
             RefreshScreen();
+        }
+
+        private void StartEqualSplit(int personCount)
+        {
+            if (_selectedUnits.Count == 0)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    this,
+                    "Ürün Seçilmedi",
+                    "Önce ödeme yapılacak ürünleri seçin.");
+
+                return;
+            }
+
+            _equalSplitParts.Clear();
+            _completedPaymentParts.Clear();
+
+            _splitPersonCount = personCount;
+            _splitCurrentPerson = 1;
+
+            decimal total = SelectedTotal;
+
+            decimal basePart =
+                Math.Floor(
+                    total / personCount * 100m) / 100m;
+
+            decimal allocated = 0;
+
+            for (int index = 1;
+                 index <= personCount;
+                 index++)
+            {
+                decimal part =
+                    index == personCount
+                        ? total - allocated
+                        : basePart;
+
+                _equalSplitParts.Enqueue(part);
+                allocated += part;
+            }
+
+            RefreshScreen();
+        }
+
+        private decimal GetCurrentPaymentAmount()
+        {
+            if (_equalSplitParts.Count > 0)
+                return _equalSplitParts.Peek();
+
+            return SelectedTotal;
+        }
+
+        private void CompleteCurrentPayment(
+    string paymentDescription)
+        {
+            if (_equalSplitParts.Count == 0)
+            {
+                SelectedPaymentType =
+                    paymentDescription;
+
+                DialogResult = true;
+                return;
+            }
+
+            _completedPaymentParts.Add(
+                $"{_splitCurrentPerson}. kişi: " +
+                paymentDescription);
+
+            _equalSplitParts.Dequeue();
+            _splitCurrentPerson++;
+
+            if (_equalSplitParts.Count > 0)
+            {
+                RefreshScreen();
+                return;
+            }
+
+            SelectedPaymentType =
+                $"Eşit Bölüşüm ({_splitPersonCount} kişi) - " +
+                string.Join(
+                    " / ",
+                    _completedPaymentParts);
+
+            ReceivedAmount = SelectedTotal;
+            ChangeAmount = 0;
+            DialogResult = true;
         }
 
         private void TakePayment(string paymentType)
@@ -427,54 +693,61 @@ namespace KaldiPOS.Views
             if (_selectedUnits.Count == 0)
                 return;
 
-            decimal amount = SelectedTotal;
+            decimal amount =
+                GetCurrentPaymentAmount();
 
             if (paymentType == "Nakit")
             {
-                var cashWindow = new CashPaymentWindow(amount)
-                {
-                    Owner = this
-                };
+                var cashWindow =
+                    new CashPaymentWindow(amount)
+                    {
+                        Owner = this
+                    };
 
                 if (cashWindow.ShowDialog() != true)
                     return;
 
-                SelectedPaymentType = "Nakit";
-                ReceivedAmount = cashWindow.ReceivedAmount;
-                ChangeAmount = cashWindow.ChangeAmount;
-                DialogResult = true;
+                ReceivedAmount +=
+                    cashWindow.ReceivedAmount;
+
+                ChangeAmount +=
+                    cashWindow.ChangeAmount;
+
+                CompleteCurrentPayment("Nakit");
                 return;
             }
 
             if (paymentType == "Kart")
             {
-                var cardWindow = new CardPaymentWindow(amount)
-                {
-                    Owner = this
-                };
+                var cardWindow =
+                    new CardPaymentWindow(amount)
+                    {
+                        Owner = this
+                    };
 
                 if (cardWindow.ShowDialog() != true)
                     return;
 
-                SelectedPaymentType = "Kart";
-                ReceivedAmount = cardWindow.ReceivedAmount;
-                ChangeAmount = 0;
-                DialogResult = true;
+                ReceivedAmount +=
+                    cardWindow.ReceivedAmount;
+
+                CompleteCurrentPayment("Kart");
                 return;
             }
 
-            var splitWindow = new SplitPaymentWindow(amount)
-            {
-                Owner = this
-            };
+            var splitWindow =
+                new SplitPaymentWindow(amount)
+                {
+                    Owner = this
+                };
 
             if (splitWindow.ShowDialog() != true)
                 return;
 
-            SelectedPaymentType = splitWindow.PaymentSummary;
-            ReceivedAmount = amount;
-            ChangeAmount = 0;
-            DialogResult = true;
+            ReceivedAmount += amount;
+
+            CompleteCurrentPayment(
+                splitWindow.PaymentSummary);
         }
 
         private static void SetButtonEnabled(
