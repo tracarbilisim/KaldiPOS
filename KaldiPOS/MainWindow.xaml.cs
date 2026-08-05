@@ -16,6 +16,9 @@ namespace KaldiPOS
     public partial class MainWindow : Window
     {
         private readonly DispatcherTimer _clockTimer;
+        private readonly DispatcherTimer _idleTimer;
+        private DateTime _lastUserActivity;
+        private bool _automaticLogoutStarted;
         private readonly UIElement _tablesContent;
         private bool _isMenuExpanded;
         private Button? _dragSourceButton;
@@ -86,9 +89,23 @@ namespace KaldiPOS
 
             _clockTimer.Tick += ClockTimer_Tick;
 
+            _idleTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+
+            _idleTimer.Tick += IdleTimer_Tick;
+            _lastUserActivity = DateTime.Now;
+
+            PreviewMouseDown += UserActivityDetected;
+            PreviewKeyDown += UserActivityDetected;
+            PreviewTouchDown += UserActivityDetected;
+
             UpdateClock();
             LoadTables();
+
             _clockTimer.Start();
+            _idleTimer.Start();
         }
 
         private void ApplyUserPermissions()
@@ -260,6 +277,77 @@ namespace KaldiPOS
                    first.Day == second.Day &&
                    first.Hour == second.Hour &&
                    first.Minute == second.Minute;
+        }
+
+        private void UserActivityDetected(
+    object sender,
+    RoutedEventArgs e)
+        {
+            _lastUserActivity = DateTime.Now;
+        }
+
+        private TimeSpan GetAutomaticLogoutTimeout()
+        {
+            string role =
+                UserSession.CurrentUser?.Role?.Trim()
+                ?? string.Empty;
+
+            bool isShortSession =
+                string.Equals(
+                    role,
+                    "Garson",
+                    StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(
+                    role,
+                    "Kasiyer",
+                    StringComparison.OrdinalIgnoreCase);
+
+            return isShortSession
+                ? TimeSpan.FromSeconds(45)
+                : TimeSpan.FromMinutes(3);
+        }
+
+        private static bool IsPaymentWindowOpen()
+        {
+            foreach (Window window in Application.Current.Windows)
+            {
+                if (window is PaymentWindow && window.IsVisible)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void IdleTimer_Tick(
+    object? sender,
+    EventArgs e)
+        {
+            if (_automaticLogoutStarted)
+                return;
+
+            TimeSpan timeout =
+                GetAutomaticLogoutTimeout();
+
+            if (DateTime.Now - _lastUserActivity < timeout)
+                return;
+
+            OrderPage? orderPage =
+                GetActiveOrderPage();
+
+            if (orderPage is not null &&
+                orderPage.HasUnsentOrders)
+            {
+                _lastUserActivity = DateTime.Now;
+                return;
+            }
+
+            if (IsPaymentWindowOpen())
+            {
+                _lastUserActivity = DateTime.Now;
+                return;
+            }
+
+            PerformAutomaticLogout();
         }
 
         private void UpdateClock()
@@ -859,13 +947,47 @@ namespace KaldiPOS
             PageDescriptionText.Text = "Salon ve masa durumlarını yönetin";
         }
 
-        private void LogoutButton_Click(object sender, RoutedEventArgs e)
+        private void PerformAutomaticLogout()
         {
+            if (_automaticLogoutStarted)
+                return;
+
+            _automaticLogoutStarted = true;
+
+            _idleTimer.Stop();
+            _clockTimer.Stop();
+
             UserSession.Clear();
+
             LoginWindow loginWindow = new();
             loginWindow.Show();
 
-            Application.Current.MainWindow = loginWindow;
+            Application.Current.MainWindow =
+                loginWindow;
+
+            Close();
+        }
+
+        private void LogoutButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            if (_automaticLogoutStarted)
+                return;
+
+            _automaticLogoutStarted = true;
+
+            _idleTimer.Stop();
+            _clockTimer.Stop();
+
+            UserSession.Clear();
+
+            LoginWindow loginWindow = new();
+            loginWindow.Show();
+
+            Application.Current.MainWindow =
+                loginWindow;
+
             Close();
         }
 
@@ -912,6 +1034,12 @@ namespace KaldiPOS
         protected override void OnClosed(EventArgs e)
         {
             _clockTimer.Stop();
+            _idleTimer.Stop();
+
+            PreviewMouseDown -= UserActivityDetected;
+            PreviewKeyDown -= UserActivityDetected;
+            PreviewTouchDown -= UserActivityDetected;
+
             base.OnClosed(e);
         }
     }
