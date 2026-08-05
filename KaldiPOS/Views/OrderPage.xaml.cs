@@ -434,11 +434,40 @@ namespace KaldiPOS.Views
 
             if (item.UnsentQuantity <= 0)
             {
-                KaldiMessageWindow.ShowWarning(
+                Database.RecordProductCancellation(
+                    _tableName,
+                    item.ProductId,
+                    item.Name,
+                    1,
+                    item.Price,
+                    "Tek ürün azaltma",
+                    UserSession.CurrentUser.FullName);
+
+                item.Quantity--;
+                item.SentQuantity--;
+
+                if (item.Quantity <= 0)
+                    OrderItems.Remove(item);
+
+                System.Diagnostics.Debug.WriteLine(
+                $"KAYIT: {item.Name} Q={item.Quantity} S={item.SentQuantity}");
+
+                Database.SaveOpenOrder(
+                    _tableName,
+                    OrderItems.Select(orderItem =>
+                        new SavedOrderItem(
+                            orderItem.ProductId,
+                            orderItem.Name,
+                            orderItem.Quantity,
+                            orderItem.Price,
+                            orderItem.SentQuantity,
+                            orderItem.Note)));
+
+                UpdateTotals();
+
+                KaldiToastWindow.ShowSuccess(
                     Window.GetWindow(this),
-                    "Gönderilmiş Ürün Değiştirilemez",
-                    "Bu ürün daha önce gönderildiği için doğrudan azaltılamaz.\n\n" +
-                    "Gönderilmiş ürünler için yetkili iptal işlemi kullanılmalıdır.");
+                    $"1 adet {item.Name} iptal edildi.");
 
                 return;
             }
