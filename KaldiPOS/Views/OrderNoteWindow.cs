@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using KaldiPOS.Services;
 
 namespace KaldiPOS.Views
 {
@@ -62,6 +63,10 @@ namespace KaldiPOS.Views
             Grid.SetRow(_noteTextBox, 2);
             root.Children.Add(_noteTextBox);
 
+            TouchInputService.AttachText(
+                _noteTextBox,
+                "Ürün Notu");
+
             var buttons = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -86,11 +91,7 @@ namespace KaldiPOS.Views
             root.Children.Add(buttons);
             Content = root;
 
-            Loaded += (_, _) =>
-            {
-                _noteTextBox.Focus();
-                _noteTextBox.CaretIndex = _noteTextBox.Text.Length;
-            };
+
         }
 
         private static Button CreateButton(

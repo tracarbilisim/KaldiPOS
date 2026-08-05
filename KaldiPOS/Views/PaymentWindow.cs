@@ -172,6 +172,10 @@ namespace KaldiPOS.Views
 
             customAmountGrid.Children.Add(_customAmountTextBox);
 
+            TouchInputService.AttachDecimal(
+    _customAmountTextBox,
+    "Ödeme Tutarı");
+
             var applyAmountButton =
                 CreateActionButton("TUTARI SEÇ", "#73543A");
 
@@ -431,6 +435,7 @@ namespace KaldiPOS.Views
             Content = root;
             PreviewKeyDown += PaymentWindow_PreviewKeyDown;
             RefreshScreen();
+
         }
 
         private UIElement CreateHeader()

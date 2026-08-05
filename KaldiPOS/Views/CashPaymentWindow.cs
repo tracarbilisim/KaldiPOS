@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using KaldiPOS.Services;
 
 namespace KaldiPOS.Views
 {
@@ -96,8 +97,10 @@ namespace KaldiPOS.Views
             };
 
             _receivedTextBox.TextChanged += ReceivedTextBox_TextChanged;
-            _receivedTextBox.PreviewTextInput += ReceivedTextBox_PreviewTextInput;
             content.Children.Add(_receivedTextBox);
+
+            _receivedTextBox.PreviewTextInput +=
+            ReceivedTextBox_PreviewTextInput;
 
             var resultGrid = new Grid
             {
@@ -223,17 +226,21 @@ namespace KaldiPOS.Views
 
             Content = root;
 
-            Loaded += (_, _) =>
-            {
-                _receivedTextBox.Focus();
-                Keyboard.Focus(_receivedTextBox);
-            };
-
             PreviewKeyDown += (_, e) =>
             {
                 if (e.Key == Key.Escape)
                     DialogResult = false;
             };
+        }
+
+        private void ReceivedTextBox_PreviewTextInput(
+    object sender,
+    TextCompositionEventArgs e)
+        {
+            e.Handled = !e.Text.All(character =>
+                char.IsDigit(character) ||
+                character == ',' ||
+                character == '.');
         }
 
         private void ReceivedTextBox_TextChanged(
@@ -255,16 +262,6 @@ namespace KaldiPOS.Views
 
             _completeButton.IsEnabled = canComplete;
             _completeButton.Opacity = canComplete ? 1 : 0.45;
-        }
-
-        private void ReceivedTextBox_PreviewTextInput(
-            object sender,
-            TextCompositionEventArgs e)
-        {
-            e.Handled = !e.Text.All(character =>
-                char.IsDigit(character) ||
-                character == ',' ||
-                character == '.');
         }
 
         private bool TryGetReceivedAmount(out decimal amount)
