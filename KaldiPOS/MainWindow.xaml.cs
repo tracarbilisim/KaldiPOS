@@ -403,6 +403,18 @@ namespace KaldiPOS
             TablesPanel.Children.Clear();
             _tableLiveCards.Clear();
 
+            bool canViewOpenDuration =
+    UserSession.HasPermission("Tables.ViewOpenDuration");
+
+            bool canViewLastOrderDuration =
+                UserSession.HasPermission("Tables.ViewLastOrderDuration");
+
+            bool canViewOrderTotal =
+                UserSession.HasPermission("Tables.ViewOrderTotal");
+
+            bool canViewLiveStatus =
+                UserSession.HasPermission("Tables.ViewLiveStatus");
+
             foreach (TableRecord table
                      in Database.GetTables("Salon"))
             {
@@ -430,9 +442,10 @@ namespace KaldiPOS
                     Background = new SolidColorBrush(
                         Color.FromRgb(88, 200, 120)),
                     CornerRadius = new CornerRadius(3),
-                    Visibility = isOpen
-                        ? Visibility.Visible
-                        : Visibility.Collapsed
+                    Visibility =
+                        isOpen && canViewLiveStatus
+                            ? Visibility.Visible
+                            : Visibility.Collapsed
                 };
 
                 TextBlock openDurationText = new()
@@ -445,9 +458,10 @@ namespace KaldiPOS
                     FontSize = 14,
                     FontWeight = FontWeights.ExtraBold,
                     Foreground = Brushes.White,
-                    Visibility = isOpen
-                        ? Visibility.Visible
-                        : Visibility.Collapsed
+                    Visibility =
+                        isOpen && canViewOpenDuration
+                            ? Visibility.Visible
+                            : Visibility.Collapsed
                 };
 
                 TextBlock lastOrderText = new()
@@ -461,9 +475,10 @@ namespace KaldiPOS
                     FontWeight = FontWeights.SemiBold,
                     Foreground = new SolidColorBrush(
                         Color.FromRgb(220, 214, 203)),
-                    Visibility = isOpen
-                        ? Visibility.Visible
-                        : Visibility.Collapsed
+                    Visibility =
+                        isOpen && canViewLastOrderDuration
+                            ? Visibility.Visible
+                            : Visibility.Collapsed
                 };
 
                 TextBlock totalText = new()
@@ -491,9 +506,10 @@ namespace KaldiPOS
                         new SolidColorBrush(
                             Color.FromRgb(60, 255, 120)),
 
-                    Visibility = isOpen
-                        ? Visibility.Visible
-                        : Visibility.Collapsed
+                    Visibility =
+                        isOpen && canViewOrderTotal
+                            ? Visibility.Visible
+                            : Visibility.Collapsed
                 };
 
                 StackPanel informationPanel = new()
@@ -506,14 +522,42 @@ namespace KaldiPOS
 
                 if (isOpen)
                 {
-                    informationPanel.Children.Add(
-                        openDurationText);
+                    if (canViewOpenDuration)
+                    {
+                        informationPanel.Children.Add(
+                            openDurationText);
+                    }
 
-                    informationPanel.Children.Add(
-                        lastOrderText);
+                    if (canViewLastOrderDuration)
+                    {
+                        informationPanel.Children.Add(
+                            lastOrderText);
+                    }
 
-                    informationPanel.Children.Add(
-                        totalText);
+                    if (canViewOrderTotal)
+                    {
+                        informationPanel.Children.Add(
+                            totalText);
+                    }
+
+                    if (!canViewOpenDuration &&
+                        !canViewLastOrderDuration &&
+                        !canViewOrderTotal)
+                    {
+                        informationPanel.Children.Add(
+                            new TextBlock
+                            {
+                                Text = "AÇIK",
+                                Margin = new Thickness(0, 2, 0, 0),
+                                HorizontalAlignment =
+                                    HorizontalAlignment.Center,
+                                FontSize = 8.5,
+                                FontWeight = FontWeights.Bold,
+                                Foreground =
+                                    new SolidColorBrush(
+                                        Color.FromRgb(226, 184, 95))
+                            });
+                    }
                 }
                 else
                 {
@@ -582,19 +626,24 @@ namespace KaldiPOS
                     Tag = table,
                     Content = content,
                     Style = (Style)FindResource("Button.Secondary"),
-                    Background = isOpen
-                    ? new SolidColorBrush(
-                    Color.FromRgb(39, 51, 43))
-                    : new SolidColorBrush(
-                    Color.FromRgb(35, 31, 27)),
-                    BorderBrush = isOpen
-                        ? new SolidColorBrush(
-                            Color.FromRgb(226, 184, 95))
-                        : new SolidColorBrush(
-                            Color.FromRgb(102, 75, 38)),
-                    BorderThickness = isOpen
-                        ? new Thickness(2)
-                        : new Thickness(1)
+                    Background =
+    isOpen && canViewLiveStatus
+        ? new SolidColorBrush(
+            Color.FromRgb(39, 51, 43))
+        : new SolidColorBrush(
+            Color.FromRgb(35, 31, 27)),
+
+                    BorderBrush =
+    isOpen && canViewLiveStatus
+        ? new SolidColorBrush(
+            Color.FromRgb(226, 184, 95))
+        : new SolidColorBrush(
+            Color.FromRgb(102, 75, 38)),
+
+                    BorderThickness =
+    isOpen && canViewLiveStatus
+        ? new Thickness(2)
+        : new Thickness(1)
                 };
 
                 if (isOpen)
@@ -681,9 +730,13 @@ namespace KaldiPOS
                 card.OpenDurationText.Foreground =
                     durationBrush;
 
-                card.TableButton.Background =
-                     GetTableBackgroundBrush(
-                                    openDuration);
+                if (UserSession.HasPermission(
+                        "Tables.ViewLiveStatus"))
+                {
+                    card.TableButton.Background =
+                        GetTableBackgroundBrush(
+                            openDuration);
+                }
 
             }
         }
