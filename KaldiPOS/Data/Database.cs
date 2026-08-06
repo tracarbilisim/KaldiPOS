@@ -3448,6 +3448,10 @@ VALUES
         ("Table.Open","Masa Aç","Masalar"),
         ("Table.Merge","Masa Birleştir","Masalar"),
         ("Table.Split","Masa Ayır","Masalar"),
+        ("Tables.ViewOpenDuration","Açık kalma süresini görebilir","Masalar"),
+        ("Tables.ViewLastOrderDuration","Son sipariş süresini görebilir","Masalar"),
+        ("Tables.ViewOrderTotal","Adisyon tutarını görebilir","Masalar"),
+        ("Tables.ViewLiveStatus","Canlı masa durumunu görebilir","Masalar"),
 
         ("Menu.Products","Ürünler","Menü"),
         ("Menu.Reports","Raporlar","Menü"),

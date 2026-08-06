@@ -158,6 +158,8 @@ namespace KaldiPOS.Views
             PermissionsPanel.IsEnabled = false;
             SavePermissionsButton.IsEnabled = false;
 
+            OpenPermissionsWindowButton.IsEnabled = false;
+
             foreach (CheckBox checkBox in GetPermissionCheckBoxes())
                 checkBox.IsChecked = false;
             UserFullNameTextBox.Focus();
@@ -178,7 +180,40 @@ namespace KaldiPOS.Views
             SaveUserButton.Content = "Değişiklikleri Kaydet";
             ToggleUserStatusButton.Visibility = Visibility.Visible;
             UpdateUserStatusButton(user);
+            OpenPermissionsWindowButton.IsEnabled = true;
             LoadUserPermissions(user);
+        }
+
+        private void OpenPermissionsWindowButton_Click(
+    object sender,
+    RoutedEventArgs e)
+        {
+            if (_selectedUser is null)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Kullanıcı Yetkileri",
+                    "Önce listeden bir kullanıcı seçin.");
+
+                return;
+            }
+
+            var permissionsWindow =
+                new UserPermissionsWindow(_selectedUser)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+
+            bool? result = permissionsWindow.ShowDialog();
+
+            if (result == true)
+            {
+                LoadUserPermissions(_selectedUser);
+
+                KaldiToastWindow.ShowSuccess(
+                    Window.GetWindow(this),
+                    "Kullanıcı yetkileri güncellendi.");
+            }
         }
 
         private void SelectUserRole(string role)

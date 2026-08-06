@@ -1,0 +1,335 @@
+﻿<Window x:Class="KaldiPOS.Views.UserPermissionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Gelişmiş Kullanıcı Yetkileri"
+        Width="1180"
+        Height="700"
+        MinWidth="1000"
+        MinHeight="620"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        Background="#171512">
+
+    <Border BorderBrush="#B1843E"
+            BorderThickness="1"
+            CornerRadius="12"
+            Background="#171512">
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="74"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="72"/>
+            </Grid.RowDefinitions>
+
+            <!-- ÜST BAŞLIK -->
+            <Border Grid.Row="0"
+                    Background="#211E1A"
+                    BorderBrush="#493A27"
+                    BorderThickness="0,0,0,1"
+                    CornerRadius="12,12,0,0">
+
+                <Grid Margin="24,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Gelişmiş Kullanıcı Yetkileri"
+                                   FontSize="24"
+                                   FontWeight="Bold"
+                                   Foreground="#F4F0E8"/>
+
+                        <TextBlock x:Name="UserInfoText"
+                                   Text="Kullanıcı yetkilerini ayrıntılı olarak düzenleyin"
+                                   Margin="0,4,0,0"
+                                   FontSize="13"
+                                   Foreground="#BDB5AA"/>
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Width="42"
+                            Height="42"
+                            Content="✕"
+                            Click="CloseButton_Click"
+                            Background="#332C24"
+                            Foreground="#F4F0E8"
+                            BorderBrush="#765A32"
+                            BorderThickness="1"
+                            FontSize="17"
+                            FontWeight="Bold"
+                            Cursor="Hand"/>
+                </Grid>
+            </Border>
+
+            <!-- ANA İÇERİK -->
+            <Grid Grid.Row="1"
+                  Margin="20">
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="245"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="250"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- SOL KATEGORİLER -->
+                <Border Grid.Column="0"
+                        Padding="14"
+                        Background="#211E1A"
+                        BorderBrush="#493A27"
+                        BorderThickness="1"
+                        CornerRadius="10">
+
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="YETKİ GRUPLARI"
+                                   FontSize="14"
+                                   FontWeight="Bold"
+                                   Foreground="#D4A64F"/>
+
+                        <TextBox x:Name="SearchTextBox"
+                                 Grid.Row="1"
+                                 Height="40"
+                                 Margin="0,14,0,14"
+                                 Padding="12,8"
+                                 TextChanged="SearchTextBox_TextChanged"
+                                 Background="#29251F"
+                                 Foreground="White"
+                                 BorderBrush="#765A32"
+                                 BorderThickness="1"
+                                 FontSize="14"/>
+
+                        <ListBox x:Name="CategoryListBox"
+                                 Grid.Row="2"
+                                 SelectionChanged="CategoryListBox_SelectionChanged"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Foreground="White"
+                                 FontSize="15"/>
+                    </Grid>
+                </Border>
+
+                <!-- ORTA YETKİ LİSTESİ -->
+                <Border Grid.Column="2"
+                        Padding="18"
+                        Background="#211E1A"
+                        BorderBrush="#493A27"
+                        BorderThickness="1"
+                        CornerRadius="10">
+
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock x:Name="CategoryTitleText"
+                                           Text="Yetkiler"
+                                           FontSize="21"
+                                           FontWeight="Bold"
+                                           Foreground="#F4F0E8"/>
+
+                                <TextBlock x:Name="CategoryDescriptionText"
+                                           Text="Bu gruba ait işlem yetkilerini belirleyin."
+                                           Margin="0,4,0,0"
+                                           Foreground="#AFA89D"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal">
+
+                                <Button Content="Grubu Seç"
+                                        Width="105"
+                                        Height="36"
+                                        Margin="0,0,8,0"
+                                        Click="SelectCategoryButton_Click"
+                                        Background="#3A342D"
+                                        Foreground="White"
+                                        BorderBrush="#765A32"
+                                        BorderThickness="1"
+                                        Cursor="Hand"/>
+
+                                <Button Content="Grubu Temizle"
+                                        Width="115"
+                                        Height="36"
+                                        Click="ClearCategoryButton_Click"
+                                        Background="#3A342D"
+                                        Foreground="White"
+                                        BorderBrush="#765A32"
+                                        BorderThickness="1"
+                                        Cursor="Hand"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Grid.Row="1"
+                                Height="1"
+                                Margin="0,16"
+                                Background="#493A27"/>
+
+                        <ScrollViewer Grid.Row="2"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+
+                            <ItemsControl x:Name="PermissionsItemsControl">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,9"
+                                                Padding="14,11"
+                                                Background="#29251F"
+                                                BorderBrush="#493A27"
+                                                BorderThickness="1"
+                                                CornerRadius="8">
+
+                                            <CheckBox IsChecked="{Binding IsAllowed}"
+                                                      Tag="{Binding PermissionKey}"
+                                                      Foreground="#F4F0E8"
+                                                      FontSize="14"
+                                                      FontWeight="SemiBold"
+                                                      Cursor="Hand">
+
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding PermissionName}"
+                                                               Foreground="#F4F0E8"
+                                                               FontWeight="SemiBold"/>
+
+                                                    <TextBlock Text="{Binding PermissionKey}"
+                                                               Margin="0,3,0,0"
+                                                               Foreground="#8F887E"
+                                                               FontSize="11"/>
+                                                </StackPanel>
+                                            </CheckBox>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <!-- SAĞ ÖZET -->
+                <Border Grid.Column="4"
+                        Padding="16"
+                        Background="#211E1A"
+                        BorderBrush="#493A27"
+                        BorderThickness="1"
+                        CornerRadius="10">
+
+                    <StackPanel>
+                        <TextBlock Text="YETKİ ÖZETİ"
+                                   FontSize="14"
+                                   FontWeight="Bold"
+                                   Foreground="#D4A64F"/>
+
+                        <TextBlock x:Name="SelectedUserNameText"
+                                   Text="Kullanıcı"
+                                   Margin="0,18,0,3"
+                                   FontSize="19"
+                                   FontWeight="Bold"
+                                   TextWrapping="Wrap"
+                                   Foreground="#F4F0E8"/>
+
+                        <TextBlock x:Name="SelectedUserRoleText"
+                                   Text="Rol"
+                                   Foreground="#AFA89D"/>
+
+                        <Border Height="1"
+                                Margin="0,18"
+                                Background="#493A27"/>
+
+                        <TextBlock Text="Seçili yetki sayısı"
+                                   Foreground="#AFA89D"/>
+
+                        <TextBlock x:Name="SelectedPermissionCountText"
+                                   Text="0"
+                                   Margin="0,5,0,18"
+                                   FontSize="34"
+                                   FontWeight="Bold"
+                                   Foreground="#D4A64F"/>
+
+                        <Button Content="Tüm Yetkileri Seç"
+                                Height="40"
+                                Margin="0,0,0,9"
+                                Click="SelectAllButton_Click"
+                                Background="#3A342D"
+                                Foreground="White"
+                                BorderBrush="#765A32"
+                                BorderThickness="1"
+                                Cursor="Hand"/>
+
+                        <Button Content="Tüm Yetkileri Kaldır"
+                                Height="40"
+                                Click="ClearAllButton_Click"
+                                Background="#3A342D"
+                                Foreground="White"
+                                BorderBrush="#765A32"
+                                BorderThickness="1"
+                                Cursor="Hand"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ALT BUTONLAR -->
+            <Border Grid.Row="2"
+                    Background="#211E1A"
+                    BorderBrush="#493A27"
+                    BorderThickness="0,1,0,0"
+                    CornerRadius="0,0,12,12">
+
+                <Grid Margin="20,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="Değişiklikler yalnızca Kaydet butonuna basıldığında uygulanır."
+                               VerticalAlignment="Center"
+                               Foreground="#AFA89D"/>
+
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+
+                        <Button Content="Vazgeç"
+                                Width="120"
+                                Height="42"
+                                Margin="0,0,10,0"
+                                Click="CancelButton_Click"
+                                Background="#3A342D"
+                                Foreground="White"
+                                BorderBrush="#765A32"
+                                BorderThickness="1"
+                                FontWeight="SemiBold"
+                                Cursor="Hand"/>
+
+                        <Button Content="Yetkileri Kaydet"
+                                Width="170"
+                                Height="42"
+                                Click="SaveButton_Click"
+                                Background="#D4A64F"
+                                Foreground="#171512"
+                                BorderThickness="0"
+                                FontWeight="Bold"
+                                Cursor="Hand"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

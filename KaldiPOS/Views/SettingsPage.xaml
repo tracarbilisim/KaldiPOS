@@ -773,32 +773,16 @@
                                TextWrapping="Wrap"
                                Foreground="#AFA89D"/>
 
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition/>
-                                        </Grid.ColumnDefinitions>
-
-                                        <Button Content="Tümünü Seç"
-                                Height="34"
-                                Click="SelectAllPermissionsButton_Click"
-                                Background="#3A342D"
-                                Foreground="White"
-                                BorderBrush="#765A32"
-                                BorderThickness="1"
-                                Cursor="Hand"/>
-
-                                        <Button Grid.Column="2"
-                                Content="Tümünü Kaldır"
-                                Height="34"
-                                Click="ClearAllPermissionsButton_Click"
-                                Background="#3A342D"
-                                Foreground="White"
-                                BorderBrush="#765A32"
-                                BorderThickness="1"
-                                Cursor="Hand"/>
-                                    </Grid>
+                                    <Button x:Name="OpenPermissionsWindowButton"
+                                Content="Yetkileri Ayrıntılı Düzenle"
+                                Height="42"
+                                Click="OpenPermissionsWindowButton_Click"
+                                Background="#D4A64F"
+                                Foreground="#171512"
+                                BorderThickness="0"
+                                FontWeight="Bold"
+                                Cursor="Hand"
+                                IsEnabled="False"/>
                                 </StackPanel>
 
                                 <ScrollViewer Grid.Row="1"
@@ -927,6 +911,36 @@
                                   Tag="Table.Split"
                                   Foreground="White"
                                   Margin="0,5"/>
+
+                                        <TextBlock Text="MASA TAKİP BİLGİLERİ"
+           Margin="0,18,0,8"
+           FontSize="15"
+           FontWeight="Bold"
+           Foreground="#D4A64F"/>
+
+                                        <CheckBox Content="Açık kalma süresini görebilir"
+          Style="{StaticResource PermissionCheckBox}"
+          Tag="Tables.ViewOpenDuration"
+          Foreground="White"
+          Margin="0,5"/>
+
+                                        <CheckBox Content="Son sipariş süresini görebilir"
+          Style="{StaticResource PermissionCheckBox}"
+          Tag="Tables.ViewLastOrderDuration"
+          Foreground="White"
+          Margin="0,5"/>
+
+                                        <CheckBox Content="Adisyon tutarını görebilir"
+          Style="{StaticResource PermissionCheckBox}"
+          Tag="Tables.ViewOrderTotal"
+          Foreground="White"
+          Margin="0,5"/>
+
+                                        <CheckBox Content="Canlı masa durumunu görebilir"
+          Style="{StaticResource PermissionCheckBox}"
+          Tag="Tables.ViewLiveStatus"
+          Foreground="White"
+          Margin="0,5"/>
 
                                         <TextBlock Text="MENÜ ERİŞİMLERİ"
                                    Margin="0,18,0,7"
