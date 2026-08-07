@@ -401,7 +401,7 @@ namespace KaldiPOS
             TimeText.Text = DateTime.Now.ToString("HH:mm:ss");
         }
 
-        private void LoadTables()
+        private async void LoadTables()
         {
             TablesPanel.Children.Clear();
             _tableLiveCards.Clear();
@@ -418,8 +418,27 @@ namespace KaldiPOS
             bool canViewLiveStatus =
                 UserSession.HasPermission("Tables.ViewLiveStatus");
 
-            foreach (TableRecord table
-                     in Database.GetTables("Salon"))
+            NetworkSettings networkSettings =
+    NetworkSettingsService.Load();
+
+            List<TableRecord> tables;
+
+            if (string.Equals(
+                    networkSettings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                tables =
+                    await LocalClientService.GetTablesAsync("Salon");
+            }
+            else
+            {
+                tables =
+                    Database.GetTables("Salon");
+            }
+
+            foreach (TableRecord table in tables)
+
             {
                 bool isOpen =
                     table.Status == 1 &&

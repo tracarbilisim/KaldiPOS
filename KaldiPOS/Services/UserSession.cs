@@ -14,13 +14,33 @@ public static class UserSession
     public static IReadOnlyCollection<string> CurrentPermissions =>
         _permissions;
 
-    public static void Start(UserRecord user)
+    public static async Task StartAsync(UserRecord user)
     {
         CurrentUser = user;
 
         _permissions.Clear();
 
-        foreach (var permission in Database.GetUserPermissions(user.Id))
+        NetworkSettings settings =
+            NetworkSettingsService.Load();
+
+        List<PermissionRecord> permissions;
+
+        if (string.Equals(
+                settings.Mode,
+                "Client",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            permissions =
+                await LocalClientService.GetUserPermissionsAsync(
+                    user.Id);
+        }
+        else
+        {
+            permissions =
+                Database.GetUserPermissions(user.Id);
+        }
+
+        foreach (PermissionRecord permission in permissions)
         {
             if (permission.IsAllowed)
                 _permissions.Add(permission.PermissionKey);

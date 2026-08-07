@@ -21,7 +21,7 @@ namespace KaldiPOS.Views
     {
         public event EventHandler? BackRequested;
 
-        private readonly List<ProductItem> _allProducts;
+        private List<ProductItem> _allProducts = new();
         private string _selectedCategory = "Tümü";
         private Button? _selectedCategoryButton;
         private readonly string _tableName;
@@ -38,33 +38,84 @@ namespace KaldiPOS.Views
             DataContext = this;
             _tableName = tableName;
 
-            _allProducts = Database.GetProducts()
-                .Select(product => new ProductItem(
-                    product.Id,
-                    product.Name,
-                    product.Category,
-                    product.Price,
-                    GetProductImagePath(product.ImagePath)))
-                .ToList();
+            Loaded += OrderPage_Loaded;
 
-            LoadCategories();
-            ShowCategoryHome();
-
-            foreach (SavedOrderItem savedItem in Database.LoadOpenOrder(_tableName))
-            {
-                OrderItems.Add(new OrderItem(
-                    savedItem.ProductId,
-                    savedItem.Name,
-                    savedItem.UnitPrice)
-                {
-                    Quantity = savedItem.Quantity,
-                    SentQuantity = savedItem.SentQuantity,
-                    Note = savedItem.Note
-                });
-            }
-
-            UpdateTotals();
             ConfigureActionVisibility();
+        }
+
+        private async void OrderPage_Loaded(
+    object sender,
+    RoutedEventArgs e)
+        {
+            Loaded -= OrderPage_Loaded;
+
+            try
+            {
+                NetworkSettings settings =
+                    NetworkSettingsService.Load();
+
+                List<ProductRecord> products;
+                List<string> categories;
+                List<SavedOrderItem> savedItems;
+
+                if (string.Equals(
+                        settings.Mode,
+                        "Client",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    products =
+                        await LocalClientService.GetProductsAsync();
+
+                    categories =
+                        await LocalClientService.GetCategoriesAsync();
+
+                    savedItems =
+                        await LocalClientService.LoadOpenOrderAsync(
+                            _tableName);
+                }
+                else
+                {
+                    products = Database.GetProducts();
+                    categories = Database.GetCategories().ToList();
+                    savedItems = Database.LoadOpenOrder(_tableName);
+                }
+
+                _allProducts = products
+                    .Select(product => new ProductItem(
+                        product.Id,
+                        product.Name,
+                        product.Category,
+                        product.Price,
+                        GetProductImagePath(product.ImagePath)))
+                    .ToList();
+
+                LoadCategories(categories);
+                ShowCategoryHome();
+
+                OrderItems.Clear();
+
+                foreach (SavedOrderItem savedItem in savedItems)
+                {
+                    OrderItems.Add(new OrderItem(
+                        savedItem.ProductId,
+                        savedItem.Name,
+                        savedItem.UnitPrice)
+                    {
+                        Quantity = savedItem.Quantity,
+                        SentQuantity = savedItem.SentQuantity,
+                        Note = savedItem.Note
+                    });
+                }
+
+                UpdateTotals();
+            }
+            catch (Exception exception)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Bağlantı Hatası",
+                    $"Adisyon bilgileri yüklenemedi.\n\n{exception.Message}");
+            }
         }
 
         private void ConfigureActionVisibility()
@@ -162,12 +213,10 @@ namespace KaldiPOS.Views
         public bool HasUnsentOrders =>
                     HasUnsentItems();
 
-        private void LoadCategories()
+        private void LoadCategories(
+            List<string> categories)
         {
             CategoryPanel.Children.Clear();
-
-            List<string> categories =
-                Database.GetCategories().ToList();
 
             ConfigureCategoryGrid(categories.Count);
 
@@ -176,7 +225,6 @@ namespace KaldiPOS.Views
                 CategoryPanel.Children.Add(
                     CreateCategoryButton(category));
             }
-        
         }
 
         private void ConfigureCategoryGrid(int categoryCount)
@@ -602,7 +650,7 @@ namespace KaldiPOS.Views
             UpdateTotals();
         }
 
-        private void CancelItemButton_Click(
+        private async void CancelItemButton_Click(
             object sender,
             RoutedEventArgs e)
         {
@@ -652,14 +700,34 @@ namespace KaldiPOS.Views
 
             int cancelQuantity = cancelWindow.CancelQuantity;
 
-            Database.RecordProductCancellation(
-                _tableName,
-                item.ProductId,
-                item.Name,
-                cancelQuantity,
-                item.Price,
-                cancelWindow.CancelReason,
-                UserSession.CurrentUser.FullName);
+            NetworkSettings settings =
+                NetworkSettingsService.Load();
+
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalClientService.RecordProductCancellationAsync(
+                    _tableName,
+                    item.ProductId,
+                    item.Name,
+                    cancelQuantity,
+                    item.Price,
+                    cancelWindow.CancelReason,
+                    UserSession.CurrentUser.FullName);
+            }
+            else
+            {
+                Database.RecordProductCancellation(
+                    _tableName,
+                    item.ProductId,
+                    item.Name,
+                    cancelQuantity,
+                    item.Price,
+                    cancelWindow.CancelReason,
+                    UserSession.CurrentUser.FullName);
+            }
 
             item.Quantity -= cancelQuantity;
             item.SentQuantity -= cancelQuantity;
@@ -667,8 +735,7 @@ namespace KaldiPOS.Views
             if (item.Quantity <= 0)
                 OrderItems.Remove(item);
 
-            Database.SaveOpenOrder(
-                _tableName,
+            List<SavedOrderItem> updatedItems =
                 OrderItems.Select(orderItem =>
                     new SavedOrderItem(
                         orderItem.ProductId,
@@ -676,7 +743,24 @@ namespace KaldiPOS.Views
                         orderItem.Quantity,
                         orderItem.Price,
                         orderItem.SentQuantity,
-                        orderItem.Note)));
+                        orderItem.Note))
+                .ToList();
+
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalClientService.SaveOpenOrderAsync(
+                    _tableName,
+                    updatedItems);
+            }
+            else
+            {
+                Database.SaveOpenOrder(
+                    _tableName,
+                    updatedItems);
+            }
 
             UpdateTotals();
 
@@ -718,7 +802,7 @@ namespace KaldiPOS.Views
             item.Note = noteWindow.NoteText;
         }
 
-        private void ClearOrderButton_Click(object sender, RoutedEventArgs e)
+        private async void ClearOrderButton_Click(object sender, RoutedEventArgs e)
         {
             if (!EnsurePermission(
         "Order.RemoveItem",
@@ -738,20 +822,52 @@ namespace KaldiPOS.Views
             if (cancelWindow.ShowDialog() != true)
                 return;
 
-            Database.SaveOpenOrder(
-    _tableName,
-    OrderItems.Select(item => new SavedOrderItem(
-        item.ProductId,
-        item.Name,
-        item.Quantity,
-        item.Price,
-        item.SentQuantity,
-        item.Note)));
+            NetworkSettings settings =
+                NetworkSettingsService.Load();
 
-            Database.CancelOpenOrder(
-                _tableName,
-                cancelWindow.CancelReason,
-                UserSession.CurrentUser.FullName);
+            List<SavedOrderItem> itemsToCancel =
+                OrderItems.Select(item => new SavedOrderItem(
+                    item.ProductId,
+                    item.Name,
+                    item.Quantity,
+                    item.Price,
+                    item.SentQuantity,
+                    item.Note))
+                .ToList();
+
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalClientService.SaveOpenOrderAsync(
+                    _tableName,
+                    itemsToCancel);
+            }
+            else
+            {
+                Database.SaveOpenOrder(
+                    _tableName,
+                    itemsToCancel);
+            }
+
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalClientService.CancelOpenOrderAsync(
+                    _tableName,
+                    cancelWindow.CancelReason,
+                    UserSession.CurrentUser.FullName);
+            }
+            else
+            {
+                Database.CancelOpenOrder(
+                    _tableName,
+                    cancelWindow.CancelReason,
+                    UserSession.CurrentUser.FullName);
+            }
 
             OrderItems.Clear();
             UpdateTotals();
@@ -763,7 +879,7 @@ namespace KaldiPOS.Views
             BackRequested?.Invoke(this, EventArgs.Empty);
         }
 
-        private void SendOrderButton_Click(object sender, RoutedEventArgs e)
+        private async void SendOrderButton_Click(object sender, RoutedEventArgs e)
         {
             if (OrderItems.Count == 0)
             {
@@ -777,19 +893,19 @@ namespace KaldiPOS.Views
             int newItemCount = OrderItems.Sum(item => item.UnsentQuantity);
 
             var preparationItems = OrderItems
-    .Where(item => item.UnsentQuantity > 0)
-    .Select(item =>
-    {
-        ProductItem? product = _allProducts.FirstOrDefault(
-            product => product.Id == item.ProductId);
+                .Where(item => item.UnsentQuantity > 0)
+                .Select(item =>
+                {
+                    ProductItem? product = _allProducts.FirstOrDefault(
+                        product => product.Id == item.ProductId);
 
-        return new PreparationTicketItem(
-            item.Name,
-            product?.Category ?? string.Empty,
-            item.UnsentQuantity,
-            item.Note);
-    })
-    .ToList();
+                    return new PreparationTicketItem(
+                        item.Name,
+                        product?.Category ?? string.Empty,
+                        item.UnsentQuantity,
+                        item.Note);
+                })
+                .ToList();
 
             if (newItemCount == 0)
             {
@@ -800,15 +916,34 @@ namespace KaldiPOS.Views
                 return;
             }
 
-            Database.SaveOpenOrder(
-                _tableName,
+            NetworkSettings settings =
+                NetworkSettingsService.Load();
+
+            List<SavedOrderItem> itemsToSave =
                 OrderItems.Select(item => new SavedOrderItem(
                     item.ProductId,
                     item.Name,
                     item.Quantity,
                     item.Price,
                     item.Quantity,
-                    item.Note)));
+                    item.Note))
+                .ToList();
+
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalClientService.SaveOpenOrderAsync(
+                    _tableName,
+                    itemsToSave);
+            }
+            else
+            {
+                Database.SaveOpenOrder(
+                    _tableName,
+                    itemsToSave);
+            }
 
             bool printSucceeded =
                 PreparationTicketService.PrintPreparationTickets(
@@ -819,8 +954,19 @@ namespace KaldiPOS.Views
             if (!printSucceeded)
                 return;
 
-            Database.MarkOpenOrderSent(
-                _tableName);
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalClientService.MarkOpenOrderSentAsync(
+                    _tableName);
+            }
+            else
+            {
+                Database.MarkOpenOrderSent(
+                    _tableName);
+            }
 
             foreach (OrderItem item in OrderItems)
                 item.MarkAsSent();
@@ -832,7 +978,7 @@ namespace KaldiPOS.Views
             BackRequested?.Invoke(this, EventArgs.Empty);
         }
 
-        private void TransferTableButton_Click(
+        private async void TransferTableButton_Click(
             object sender,
             RoutedEventArgs e)
         {
@@ -845,13 +991,6 @@ namespace KaldiPOS.Views
 
             if (OrderItems.Count == 0)
             {
-
-                if (!EnsureAllItemsSent("Masa aktarma"))
-                    return;
-
-                if (!EnsureAllItemsSent("Ürün aktarma"))
-                    return;
-
                 KaldiMessageWindow.ShowWarning(
                     Window.GetWindow(this),
                     "Boş Adisyon",
@@ -860,15 +999,37 @@ namespace KaldiPOS.Views
                 return;
             }
 
-            Database.SaveOpenOrder(
-                _tableName,
+            if (!EnsureAllItemsSent("Masa aktarma"))
+                return;
+
+            NetworkSettings settings =
+                NetworkSettingsService.Load();
+
+            List<SavedOrderItem> itemsToTransfer =
                 OrderItems.Select(item => new SavedOrderItem(
                     item.ProductId,
                     item.Name,
                     item.Quantity,
                     item.Price,
                     item.SentQuantity,
-                    item.Note)));
+                    item.Note))
+                .ToList();
+
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalClientService.SaveOpenOrderAsync(
+                    _tableName,
+                    itemsToTransfer);
+            }
+            else
+            {
+                Database.SaveOpenOrder(
+                    _tableName,
+                    itemsToTransfer);
+            }
 
             while (true)
             {
@@ -888,26 +1049,38 @@ namespace KaldiPOS.Views
                 string targetTableName =
                     transferWindow.SelectedTableName;
 
-                bool confirmed = KaldiDialog.ShowQuestion(
-                    Window.GetWindow(this),
-                    "Masayı Aktar",
-                    $"{_tableName} masasındaki adisyon " +
-                    $"{targetTableName} masasına aktarılsın mı?");
+                bool confirmed =
+                    KaldiDialog.ShowQuestion(
+                        Window.GetWindow(this),
+                        "Masayı Aktar",
+                        $"{_tableName} masasındaki adisyon " +
+                        $"{targetTableName} masasına aktarılsın mı?");
 
                 if (!confirmed)
-                {
                     continue;
-                }
 
                 try
                 {
-                    Database.TransferOpenOrder(
-                        _tableName,
-                        targetTableName);
+                    if (string.Equals(
+                            settings.Mode,
+                            "Client",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        await LocalClientService.TransferOpenOrderAsync(
+                            _tableName,
+                            targetTableName);
+                    }
+                    else
+                    {
+                        Database.TransferOpenOrder(
+                            _tableName,
+                            targetTableName);
+                    }
 
                     KaldiToastWindow.ShowSuccess(
                         Window.GetWindow(this),
-                        $"Adisyon {targetTableName} masasına aktarıldı.");
+                        $"{_tableName} masasındaki adisyon " +
+                        $"{targetTableName} masasına aktarıldı.");
 
                     BackRequested?.Invoke(
                         this,
@@ -927,7 +1100,7 @@ namespace KaldiPOS.Views
             }
         }
 
-        private void TransferProductButton_Click(
+        private async void TransferProductButton_Click(
             object sender,
             RoutedEventArgs e)
         {
@@ -948,15 +1121,37 @@ namespace KaldiPOS.Views
                 return;
             }
 
-            Database.SaveOpenOrder(
-                _tableName,
+            NetworkSettings settings =
+                NetworkSettingsService.Load();
+
+            List<SavedOrderItem> currentItems =
                 OrderItems.Select(item => new SavedOrderItem(
                     item.ProductId,
                     item.Name,
                     item.Quantity,
                     item.Price,
                     item.SentQuantity,
-                    item.Note)));
+                    item.Note))
+                .ToList();
+
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalClientService.SaveOpenOrderAsync(
+                    _tableName,
+                    currentItems);
+            }
+            else
+            {
+                Database.SaveOpenOrder(
+                    _tableName,
+                    currentItems);
+            }
+
+            if (!EnsureAllItemsSent("Ürün aktarma"))
+                return;
 
             var productTransferWindow =
                 new ProductTransferWindow(OrderItems)
@@ -1002,9 +1197,7 @@ namespace KaldiPOS.Views
 
                 try
                 {
-                    Database.TransferProducts(
-                        _tableName,
-                        targetTable,
+                    List<SavedOrderItem> productsToTransfer =
                         productTransferWindow.SelectedItems
                             .Select(item =>
                                 new SavedOrderItem(
@@ -1013,7 +1206,26 @@ namespace KaldiPOS.Views
                                     item.TransferQuantity,
                                     item.UnitPrice,
                                     item.TransferQuantity,
-                                    item.Note)));
+                                    item.Note))
+                            .ToList();
+
+                    if (string.Equals(
+                            settings.Mode,
+                            "Client",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        await LocalClientService.TransferProductsAsync(
+                            _tableName,
+                            targetTable,
+                            productsToTransfer);
+                    }
+                    else
+                    {
+                        Database.TransferProducts(
+                            _tableName,
+                            targetTable,
+                            productsToTransfer);
+                    }
 
                     KaldiToastWindow.ShowSuccess(
                         Window.GetWindow(this),
@@ -1037,7 +1249,7 @@ namespace KaldiPOS.Views
             }
         }
 
-        private void MergeTableButton_Click(
+        private async void MergeTableButton_Click(
             object sender,
             RoutedEventArgs e)
         {
@@ -1047,7 +1259,6 @@ namespace KaldiPOS.Views
             {
                 return;
             }
-
             if (OrderItems.Count == 0)
             {
                 KaldiMessageWindow.ShowWarning(
@@ -1056,20 +1267,39 @@ namespace KaldiPOS.Views
                     "Birleştirilecek bir adisyon bulunmuyor.");
 
                 return;
-
-                if (!EnsureAllItemsSent("Masa birleştirme"))
-                    return;
             }
 
-            Database.SaveOpenOrder(
-                _tableName,
+            if (!EnsureAllItemsSent("Masa birleştirme"))
+                return;
+
+            NetworkSettings settings =
+                NetworkSettingsService.Load();
+
+            List<SavedOrderItem> itemsToMerge =
                 OrderItems.Select(item => new SavedOrderItem(
                     item.ProductId,
                     item.Name,
                     item.Quantity,
                     item.Price,
                     item.SentQuantity,
-                    item.Note)));
+                    item.Note))
+                .ToList();
+
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalClientService.SaveOpenOrderAsync(
+                    _tableName,
+                    itemsToMerge);
+            }
+            else
+            {
+                Database.SaveOpenOrder(
+                    _tableName,
+                    itemsToMerge);
+            }
 
             while (true)
             {
@@ -1102,17 +1332,23 @@ namespace KaldiPOS.Views
 
                 try
                 {
-                    Database.TransferProducts(
-                        _tableName,
-                        targetTable,
-                        OrderItems.Select(item =>
-                            new SavedOrderItem(
-                                item.ProductId,
-                                item.Name,
-                                item.Quantity,
-                                item.Price,
-                                item.SentQuantity,
-                                item.Note)));
+                    if (string.Equals(
+                            settings.Mode,
+                            "Client",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        await LocalClientService.TransferProductsAsync(
+                            _tableName,
+                            targetTable,
+                            itemsToMerge);
+                    }
+                    else
+                    {
+                        Database.TransferProducts(
+                            _tableName,
+                            targetTable,
+                            itemsToMerge);
+                    }
 
                     KaldiToastWindow.ShowSuccess(
                         Window.GetWindow(this),
@@ -1167,7 +1403,9 @@ namespace KaldiPOS.Views
             }
         }
 
-        private void PaymentButton_Click(object sender, RoutedEventArgs e)
+        private async void PaymentButton_Click(
+            object sender,
+            RoutedEventArgs e)
         {
             bool canTakePayment =
                 UserSession.HasPermission("Payment.Cash") ||
@@ -1196,21 +1434,46 @@ namespace KaldiPOS.Views
             if (!EnsureAllItemsSent("Ödeme alma"))
                 return;
 
-            decimal totalAmount = OrderItems.Sum(
-                item => item.Price * item.Quantity);
+            decimal totalAmount =
+                OrderItems.Sum(item => item.Price * item.Quantity);
 
-            Database.SaveOpenOrder(
-                _tableName,
+            NetworkSettings settings =
+                NetworkSettingsService.Load();
+
+            List<SavedOrderItem> currentItems =
                 OrderItems.Select(item => new SavedOrderItem(
                     item.ProductId,
                     item.Name,
                     item.Quantity,
                     item.Price,
                     item.SentQuantity,
-                    item.Note)));
+                    item.Note))
+                .ToList();
 
-            decimal previouslyPaid =
-                Database.GetOpenOrderPaidTotal(_tableName);
+            decimal previouslyPaid;
+
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalClientService.SaveOpenOrderAsync(
+                    _tableName,
+                    currentItems);
+
+                previouslyPaid =
+                    await LocalClientService.GetOpenOrderPaidTotalAsync(
+                        _tableName);
+            }
+            else
+            {
+                Database.SaveOpenOrder(
+                    _tableName,
+                    currentItems);
+
+                previouslyPaid =
+                    Database.GetOpenOrderPaidTotal(_tableName);
+            }
 
             if (previouslyPaid >= totalAmount - 0.005m)
             {
@@ -1221,37 +1484,51 @@ namespace KaldiPOS.Views
                 return;
             }
 
-            var paymentWindow = new PaymentWindow(
-                totalAmount,
-                previouslyPaid)
-            {
-                Owner = Window.GetWindow(this)
-            };
+            var paymentWindow =
+                new PaymentWindow(totalAmount, previouslyPaid)
+                {
+                    Owner = Window.GetWindow(this)
+                };
 
             paymentWindow.ShowDialog();
 
             if (paymentWindow.ProductPaymentRequested)
             {
-                TakeProductPayment();
+                await TakeProductPayment();
                 return;
             }
 
-            if (paymentWindow.DialogResult != true)
+            if (paymentWindow.DialogResult != true ||
+                paymentWindow.Payments.Count == 0)
+            {
                 return;
-
-            if (paymentWindow.Payments.Count == 0)
-                return;
+            }
 
             foreach (PaymentEntry payment in paymentWindow.Payments)
             {
-                Database.AddOpenOrderPayment(
-                    _tableName,
-                    payment.Type,
-                    payment.Amount,
-                    payment.Description);
+                if (string.Equals(
+                        settings.Mode,
+                        "Client",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    await LocalClientService.AddOpenOrderPaymentAsync(
+                        _tableName,
+                        payment.Type,
+                        payment.Amount,
+                        payment.Description);
+                }
+                else
+                {
+                    Database.AddOpenOrderPayment(
+                        _tableName,
+                        payment.Type,
+                        payment.Amount,
+                        payment.Description);
+                }
             }
 
-            decimal paidTotal = previouslyPaid +
+            decimal paidTotal =
+                previouslyPaid +
                 paymentWindow.Payments.Sum(payment => payment.Amount);
 
             if (paidTotal >= totalAmount - 0.005m)
@@ -1259,17 +1536,36 @@ namespace KaldiPOS.Views
                 string paymentType =
                     paymentWindow.Payments
                         .Select(payment => payment.Type)
-                        .Concat(new[] { previouslyPaid > 0 ? "Önceki Ödeme" : string.Empty })
-                        .Where(type => !string.IsNullOrWhiteSpace(type))
+                        .Concat(new[]
+                        {
+                    previouslyPaid > 0
+                        ? "Önceki Ödeme"
+                        : string.Empty
+                        })
+                        .Where(type =>
+                            !string.IsNullOrWhiteSpace(type))
                         .Distinct()
                         .Count() == 1
                             ? paymentWindow.Payments[0].Type
                             : "Çoklu Ödeme";
 
-                Database.CloseOpenOrder(
-                    _tableName,
-                    paymentType,
-                    totalAmount);
+                if (string.Equals(
+                        settings.Mode,
+                        "Client",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    await LocalClientService.CloseOpenOrderAsync(
+                        _tableName,
+                        paymentType,
+                        totalAmount);
+                }
+                else
+                {
+                    Database.CloseOpenOrder(
+                        _tableName,
+                        paymentType,
+                        totalAmount);
+                }
 
                 KaldiToastWindow.ShowSuccess(
                     Window.GetWindow(this),
@@ -1278,16 +1574,21 @@ namespace KaldiPOS.Views
 
                 OrderItems.Clear();
                 UpdateTotals();
-                BackRequested?.Invoke(this, EventArgs.Empty);
+
+                BackRequested?.Invoke(
+                    this,
+                    EventArgs.Empty);
+
                 return;
             }
 
             KaldiToastWindow.ShowSuccess(
                 Window.GetWindow(this),
-                $"Ödeme kaydedildi. Kalan: {totalAmount - paidTotal:N2} ₺");
+                $"Ödeme kaydedildi. Kalan: " +
+                $"{totalAmount - paidTotal:N2} ₺");
         }
 
-        private void TakeProductPayment()
+        private async Task TakeProductPayment()
         {
             var productPaymentWindow =
                 new ProductSplitPaymentWindow(OrderItems)
@@ -1303,15 +1604,34 @@ namespace KaldiPOS.Views
                 return;
             }
 
-            Database.SaveOpenOrder(
-                _tableName,
+            NetworkSettings settings =
+                NetworkSettingsService.Load();
+
+            List<SavedOrderItem> currentItems =
                 OrderItems.Select(item => new SavedOrderItem(
                     item.ProductId,
                     item.Name,
                     item.Quantity,
                     item.Price,
                     item.SentQuantity,
-                    item.Note)));
+                    item.Note))
+                .ToList();
+
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalClientService.SaveOpenOrderAsync(
+                    _tableName,
+                    currentItems);
+            }
+            else
+            {
+                Database.SaveOpenOrder(
+                    _tableName,
+                    currentItems);
+            }
 
             var selectedItems =
                 productPaymentWindow.SelectedProducts
@@ -1327,12 +1647,31 @@ namespace KaldiPOS.Views
                 selectedItems.Select(item =>
                     $"{item.Quantity} × {item.Name}"));
 
-            bool orderClosed = Database.ProcessProductPayment(
-                _tableName,
-                selectedItems,
-                productPaymentWindow.SelectedPaymentType,
-                productPaymentWindow.SelectedTotal,
-                description);
+            bool orderClosed;
+
+            if (string.Equals(
+                    settings.Mode,
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                orderClosed =
+                    await LocalClientService.ProcessProductPaymentAsync(
+                        _tableName,
+                        selectedItems,
+                        productPaymentWindow.SelectedPaymentType,
+                        productPaymentWindow.SelectedTotal,
+                        description);
+            }
+            else
+            {
+                orderClosed =
+                    Database.ProcessProductPayment(
+                        _tableName,
+                        selectedItems,
+                        productPaymentWindow.SelectedPaymentType,
+                        productPaymentWindow.SelectedTotal,
+                        description);
+            }
 
             RemovePaidProducts(selectedItems);
             UpdateTotals();
@@ -1341,7 +1680,11 @@ namespace KaldiPOS.Views
             {
                 OrderItems.Clear();
                 UpdateTotals();
-                BackRequested?.Invoke(this, EventArgs.Empty);
+
+                BackRequested?.Invoke(
+                    this,
+                    EventArgs.Empty);
+
                 return;
             }
 
@@ -1386,7 +1729,7 @@ namespace KaldiPOS.Views
             }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
-        private void BackButton_Click(
+        private async void BackButton_Click(
             object sender,
             RoutedEventArgs e)
         {
@@ -1395,7 +1738,22 @@ namespace KaldiPOS.Views
 
             if (OrderItems.Count == 0)
             {
-                Database.DeleteOpenOrder(_tableName);
+                NetworkSettings settings =
+                    NetworkSettingsService.Load();
+
+                if (string.Equals(
+                        settings.Mode,
+                        "Client",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    await LocalClientService.DeleteOpenOrderAsync(
+                        _tableName);
+                }
+                else
+                {
+                    Database.DeleteOpenOrder(
+                        _tableName);
+                }
             }
 
             BackRequested?.Invoke(

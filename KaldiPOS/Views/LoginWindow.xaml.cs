@@ -64,7 +64,7 @@ namespace KaldiPOS.Views
             AttemptLogin();
         }
 
-        private void AttemptLogin()
+        private async void AttemptLogin()
         {
             if (_enteredPin.Length < MinPinLength)
             {
@@ -74,7 +74,25 @@ namespace KaldiPOS.Views
 
             try
             {
-                UserRecord? user = Database.VerifyUserPin(_enteredPin);
+                NetworkSettings networkSettings =
+    NetworkSettingsService.Load();
+
+                UserRecord? user;
+
+                if (string.Equals(
+                        networkSettings.Mode,
+                        "Client",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    user =
+                        await LocalClientService.VerifyUserPinAsync(
+                            _enteredPin);
+                }
+                else
+                {
+                    user =
+                        Database.VerifyUserPin(_enteredPin);
+                }
 
                 if (user is null)
                 {
@@ -85,7 +103,7 @@ namespace KaldiPOS.Views
                     return;
                 }
 
-                UserSession.Start(user);
+                await UserSession.StartAsync(user);
 
                 MainWindow mainWindow = new();
                 mainWindow.Show();
