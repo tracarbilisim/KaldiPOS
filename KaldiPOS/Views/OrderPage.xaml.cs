@@ -583,56 +583,20 @@ namespace KaldiPOS.Views
                 return;
             }
 
-            if (!EnsurePermission(
-                    "Order.RemoveItem",
-                    "Ürün miktarını azaltma"))
-            {
-                return;
-            }
-
+            // Sadece gönderilmemiş miktar azaltılabilir.
             if (item.UnsentQuantity <= 0)
             {
-                Database.RecordProductCancellation(
-                    _tableName,
-                    item.ProductId,
-                    item.Name,
-                    1,
-                    item.Price,
-                    "Tek ürün azaltma",
-                    UserSession.CurrentUser.FullName);
-
-                item.Quantity--;
-                item.SentQuantity--;
-
-                if (item.Quantity <= 0)
-                    OrderItems.Remove(item);
-
-                System.Diagnostics.Debug.WriteLine(
-                $"KAYIT: {item.Name} Q={item.Quantity} S={item.SentQuantity}");
-
-                Database.SaveOpenOrder(
-                    _tableName,
-                    OrderItems.Select(orderItem =>
-                        new SavedOrderItem(
-                            orderItem.ProductId,
-                            orderItem.Name,
-                            orderItem.Quantity,
-                            orderItem.Price,
-                            orderItem.SentQuantity,
-                            orderItem.Note)));
-
-                UpdateTotals();
-
-                KaldiToastWindow.ShowSuccess(
+                KaldiMessageWindow.ShowWarning(
                     Window.GetWindow(this),
-                    $"1 adet {item.Name} iptal edildi.");
+                    "Gönderilmiş Ürün",
+                    "Bu ürün daha önce gönderildiği için miktarı azaltılamaz.");
 
                 return;
             }
 
-            if (item.Quantity > 1)
-                item.Quantity--;
-            else
+            item.Quantity--;
+
+            if (item.Quantity <= 0)
                 OrderItems.Remove(item);
 
             UpdateTotals();
@@ -648,20 +612,30 @@ namespace KaldiPOS.Views
                 return;
             }
 
+            // Henüz gönderilmemiş miktar varsa,
+            // garson bunu serbestçe silebilir.
+            if (item.UnsentQuantity > 0)
+            {
+                if (item.SentQuantity == 0)
+                {
+                    OrderItems.Remove(item);
+                }
+                else
+                {
+                    // Daha önce gönderilmiş miktarı koru,
+                    // yalnızca yeni eklenen miktarı kaldır.
+                    item.Quantity = item.SentQuantity;
+                }
+
+                UpdateTotals();
+                return;
+            }
+
+            // Buradan sonrası gerçekten gönderilmiş ürün iptalidir.
             if (!EnsurePermission(
                     "Order.RemoveItem",
                     "Gönderilmiş ürün iptali"))
             {
-                return;
-            }
-
-            if (item.SentQuantity <= 0)
-            {
-                KaldiMessageWindow.ShowWarning(
-                    Window.GetWindow(this),
-                    "Ürün Gönderilmedi",
-                    "Gönderilmemiş ürünü eksi tuşuyla kaldırabilirsiniz.");
-
                 return;
             }
 
@@ -836,21 +810,17 @@ namespace KaldiPOS.Views
                     item.Quantity,
                     item.Note)));
 
-            PreparationTicketService.ShowPreview(
-                Window.GetWindow(this),
-                _tableName,
-                preparationItems);
+            bool printSucceeded =
+                PreparationTicketService.PrintPreparationTickets(
+                    Window.GetWindow(this),
+                    _tableName,
+                    preparationItems);
 
-            PreparationTicketService.ShowPreview(
-    Window.GetWindow(this),
-    _tableName,
-    preparationItems);
+            if (!printSucceeded)
+                return;
 
             Database.MarkOpenOrderSent(
                 _tableName);
-
-            foreach (OrderItem item in OrderItems)
-                item.MarkAsSent();
 
             foreach (OrderItem item in OrderItems)
                 item.MarkAsSent();
@@ -1163,6 +1133,37 @@ namespace KaldiPOS.Views
 
                     return;
                 }
+            }
+        }
+
+        private void PrintReceiptButton_Click(
+    object sender,
+    RoutedEventArgs e)
+        {
+            if (OrderItems.Count == 0)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Adisyon Boş",
+                    "Yazdırılacak bir adisyon bulunmuyor.");
+
+                return;
+            }
+
+            if (!EnsureAllItemsSent("Adisyon yazdırma"))
+                return;
+
+            bool printed =
+                ReceiptPrintService.PrintReceipt(
+                    Window.GetWindow(this),
+                    _tableName,
+                    OrderItems);
+
+            if (printed)
+            {
+                KaldiToastWindow.ShowSuccess(
+                    Window.GetWindow(this),
+                    "Adisyon kasa yazıcısına gönderildi.");
             }
         }
 

@@ -1,7 +1,12 @@
-﻿using System;
+﻿using KaldiPOS.Data;
+using KaldiPOS.Views;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Printing;
 using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -17,7 +22,76 @@ namespace KaldiPOS.Services
 
     public static class PreparationTicketService
     {
-        public static void ShowPreview(
+
+        private static readonly string SettingsFilePath =
+    Path.Combine(
+        Environment.GetFolderPath(
+            Environment.SpecialFolder.LocalApplicationData),
+        "KaldiPOS",
+        "settings.json");
+
+        private sealed class PrinterSettings
+        {
+            public string KitchenPrinter { get; set; } = string.Empty;
+            public string BarPrinter { get; set; } = string.Empty;
+        }
+
+        private static PrinterSettings LoadPrinterSettings()
+        {
+            if (!File.Exists(SettingsFilePath))
+                return new PrinterSettings();
+
+            try
+            {
+                string json = File.ReadAllText(SettingsFilePath);
+
+                return JsonSerializer.Deserialize<PrinterSettings>(json)
+                       ?? new PrinterSettings();
+            }
+            catch
+            {
+                return new PrinterSettings();
+            }
+        }
+
+        private static string ResolveStation(string category)
+        {
+            string normalized =
+                (category ?? string.Empty)
+                .Trim()
+                .ToUpperInvariant();
+
+            string[] barKeywords =
+            {
+        "KAHVE",
+        "FİLTRE",
+        "SOĞUK",
+        "FRAPPE",
+        "BUBBLE",
+        "ÇAY",
+        "İÇECEK",
+        "MEŞRUBAT",
+        "SMOOTHIE",
+        "MILKSHAKE"
+    };
+
+            if (barKeywords.Any(keyword =>
+                    normalized.Contains(keyword)))
+            {
+                return "Bar";
+            }
+
+            string databaseStation =
+                Database.GetCategoryStation(category);
+
+            return string.Equals(
+                    databaseStation,
+                    "Bar",
+                    StringComparison.OrdinalIgnoreCase)
+                ? "Bar"
+                : "Mutfak";
+        }
+        public static bool PrintPreparationTickets(
             Window? owner,
             string tableName,
             IEnumerable<PreparationTicketItem> items)
@@ -25,216 +99,123 @@ namespace KaldiPOS.Services
             List<PreparationTicketItem> itemList = items.ToList();
 
             if (itemList.Count == 0)
+                return false;
+
+            List<PreparationTicketItem> kitchenItems =
+                itemList
+                    .Where(item => ResolveStation(item.Category) == "Mutfak")
+                    .ToList();
+
+            List<PreparationTicketItem> barItems =
+                itemList
+                    .Where(item => ResolveStation(item.Category) == "Bar")
+                    .ToList();
+
+            PrinterSettings settings = LoadPrinterSettings();
+
+            try
+            {
+                if (kitchenItems.Count > 0)
+                {
+                    if (string.IsNullOrWhiteSpace(settings.KitchenPrinter))
+                    {
+                        KaldiMessageWindow.ShowWarning(
+                            owner,
+                            "Mutfak Yazıcısı Ayarlanmamış",
+                            "Ayarlar → Yazıcı Ayarları bölümünden mutfak yazıcısını tanımlayın.");
+
+                        return false;
+                    }
+
+                    PrintTicket(
+                        BuildTicketText(tableName, kitchenItems),
+                        settings.KitchenPrinter);
+                }
+
+                if (barItems.Count > 0)
+                {
+                    if (string.IsNullOrWhiteSpace(settings.BarPrinter))
+                    {
+                        KaldiMessageWindow.ShowWarning(
+                            owner,
+                            "Bar Yazıcısı Ayarlanmamış",
+                            "Ayarlar → Yazıcı Ayarları bölümünden bar yazıcısını tanımlayın.");
+
+                        return false;
+                    }
+
+                    PrintTicket(
+                        BuildTicketText(tableName, barItems),
+                        settings.BarPrinter);
+                }
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                KaldiMessageWindow.ShowWarning(
+                    owner,
+                    "Hazırlama Fişi Yazdırılamadı",
+                    exception.Message);
+
+                return false;
+            }
+        }
+
+        private static string BuildPreviewText(
+            string tableName,
+            List<PreparationTicketItem> kitchenItems,
+            List<PreparationTicketItem> barItems)
+        {
+            var builder = new StringBuilder();
+
+            builder.AppendLine("================================");
+            builder.AppendLine("          KALDİ CAFE");
+            builder.AppendLine("       HAZIRLAMA FİŞİ");
+            builder.AppendLine("================================");
+            builder.AppendLine($"MASA : {tableName}");
+            builder.AppendLine($"TARİH: {DateTime.Now:dd.MM.yyyy}");
+            builder.AppendLine($"SAAT : {DateTime.Now:HH:mm}");
+
+            AppendPreviewStation(
+                builder,
+                "MUTFAK",
+                kitchenItems);
+
+            AppendPreviewStation(
+                builder,
+                "BAR",
+                barItems);
+
+            builder.AppendLine();
+            builder.AppendLine("================================");
+            builder.AppendLine(
+                $"TOPLAM ÜRÜN: {kitchenItems.Sum(x => x.Quantity) + barItems.Sum(x => x.Quantity)}");
+            builder.AppendLine("================================");
+
+            return builder.ToString();
+        }
+
+        private static void AppendPreviewStation(
+    StringBuilder builder,
+    string stationName,
+    List<PreparationTicketItem> items)
+        {
+            if (items.Count == 0)
                 return;
 
-            string ticketText = BuildTicketText(tableName, itemList);
+            builder.AppendLine();
+            builder.AppendLine(
+                $"========== {stationName} ==========");
 
-            var previewTextBox = new TextBox
+            foreach (PreparationTicketItem item in items)
             {
-                Text = ticketText,
-                FontFamily = new FontFamily("Consolas"),
-                FontSize = 13,
-                FontWeight = FontWeights.SemiBold,
-                IsReadOnly = true,
-                TextWrapping = TextWrapping.Wrap,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Margin = new Thickness(10),
-                Padding = new Thickness(10),
-                Background = new SolidColorBrush(
-                    Color.FromRgb(33, 30, 26)),
-                Foreground = Brushes.White,
-                BorderBrush = new SolidColorBrush(
-                    Color.FromRgb(118, 90, 50)),
-                BorderThickness = new Thickness(1)
-            };
+                builder.AppendLine(
+                    $"{item.Quantity} x {item.Name.ToUpperInvariant()}");
 
-            var titleText = new TextBlock
-            {
-                Text = "HAZIRLAMA FİŞİ",
-                FontSize = 18,
-                FontWeight = FontWeights.Bold,
-                Foreground = Brushes.White,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            var subtitleText = new TextBlock
-            {
-                Text = "Mutfak ve bar sipariş önizlemesi",
-                Margin = new Thickness(0, 3, 0, 0),
-                FontSize = 10,
-                Foreground = new SolidColorBrush(
-                    Color.FromRgb(189, 183, 173))
-            };
-
-            var closeTopButton = new Button
-            {
-                Content = "✕",
-                Width = 48,
-                Height = 36,
-                FontSize = 18,
-                FontWeight = FontWeights.Bold,
-                Foreground = Brushes.White,
-                Background = new SolidColorBrush(
-                    Color.FromRgb(88, 43, 43)),
-                BorderBrush = new SolidColorBrush(
-                    Color.FromRgb(154, 113, 63)),
-                BorderThickness = new Thickness(1),
-                Cursor = System.Windows.Input.Cursors.Hand
-            };
-
-            var headerGrid = new Grid
-            {
-                Margin = new Thickness(14, 10, 14, 6)
-            };
-
-            headerGrid.ColumnDefinitions.Add(
-                new ColumnDefinition());
-
-            headerGrid.ColumnDefinitions.Add(
-                new ColumnDefinition
-                {
-                    Width = GridLength.Auto
-                });
-
-            var headerTextPanel = new StackPanel();
-
-            headerTextPanel.Children.Add(titleText);
-            headerTextPanel.Children.Add(subtitleText);
-
-            headerGrid.Children.Add(headerTextPanel);
-
-            Grid.SetColumn(closeTopButton, 1);
-            headerGrid.Children.Add(closeTopButton);
-
-            var printButton = new Button
-            {
-                Content = "YAZDIR",
-                Width = 125,
-                Height = 40,
-                Margin = new Thickness(6),
-                FontSize = 12,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(
-                    Color.FromRgb(24, 20, 14)),
-                Background = new SolidColorBrush(
-                    Color.FromRgb(212, 166, 79)),
-                BorderBrush = new SolidColorBrush(
-                    Color.FromRgb(226, 184, 95)),
-                BorderThickness = new Thickness(1),
-                Cursor = System.Windows.Input.Cursors.Hand
-            };
-
-            var closeButton = new Button
-            {
-                Content = "KAPAT",
-                Width = 150,
-                Height = 48,
-                Margin = new Thickness(6),
-                FontSize = 14,
-                FontWeight = FontWeights.Bold,
-                Foreground = Brushes.White,
-                Background = new SolidColorBrush(
-                    Color.FromRgb(78, 62, 47)),
-                BorderBrush = new SolidColorBrush(
-                    Color.FromRgb(118, 90, 50)),
-                BorderThickness = new Thickness(1),
-                Cursor = System.Windows.Input.Cursors.Hand
-            };
-
-            var buttonPanel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 6, 0, 10)
-            };
-
-            buttonPanel.Children.Add(closeButton);
-            buttonPanel.Children.Add(printButton);
-
-            var rootGrid = new Grid
-            {
-                Background = new SolidColorBrush(
-                    Color.FromRgb(18, 16, 14))
-            };
-
-            rootGrid.RowDefinitions.Add(
-                new RowDefinition
-                {
-                    Height = GridLength.Auto
-                });
-
-            rootGrid.RowDefinitions.Add(
-                new RowDefinition
-                {
-                    Height = new GridLength(
-                        1,
-                        GridUnitType.Star)
-                });
-
-            rootGrid.RowDefinitions.Add(
-                new RowDefinition
-                {
-                    Height = GridLength.Auto
-                });
-
-            Grid.SetRow(headerGrid, 0);
-            rootGrid.Children.Add(headerGrid);
-
-            var previewBorder = new Border
-            {
-                Margin = new Thickness(14, 0, 14, 0),
-                Padding = new Thickness(0),
-                Background = new SolidColorBrush(
-                    Color.FromRgb(23, 21, 18)),
-                BorderBrush = new SolidColorBrush(
-                    Color.FromRgb(118, 90, 50)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10),
-                Child = previewTextBox
-            };
-
-            Grid.SetRow(previewBorder, 1);
-            rootGrid.Children.Add(previewBorder);
-
-            Grid.SetRow(buttonPanel, 2);
-            rootGrid.Children.Add(buttonPanel);
-
-            var window = new Window
-            {
-                Title = "KaldiPOS - Hazırlama Fişi",
-                Width = 390,
-                Height = 560,
-                WindowStartupLocation =
-                    WindowStartupLocation.CenterOwner,
-                ResizeMode = ResizeMode.NoResize,
-                WindowStyle = WindowStyle.None,
-                AllowsTransparency = true,
-                Background = Brushes.Transparent,
-                Content = new Border
-                {
-                    Background = new SolidColorBrush(
-                        Color.FromRgb(18, 16, 14)),
-                    BorderBrush = new SolidColorBrush(
-                        Color.FromRgb(181, 135, 55)),
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(12),
-                    Child = rootGrid
-                },
-                Owner = owner
-            };
-
-            closeButton.Click += (_, _) =>
-                window.Close();
-
-            closeTopButton.Click += (_, _) =>
-                window.Close();
-
-            printButton.Click += (_, _) =>
-            {
-                PrintTicket(ticketText);
-            };
-
-            window.ShowDialog();
+                if (!string.IsNullOrWhiteSpace(item.Note))
+                    builder.AppendLine($"   NOT: {item.Note}");
+            }
         }
 
         private static string BuildTicketText(
@@ -277,12 +258,27 @@ namespace KaldiPOS.Services
             return builder.ToString();
         }
 
-        private static void PrintTicket(string ticketText)
+        private static void PrintTicket(
+            string ticketText,
+            string printerName)
         {
-            var printDialog = new PrintDialog();
+            using var printServer =
+                new LocalPrintServer();
 
-            if (printDialog.ShowDialog() != true)
-                return;
+            PrintQueue? printQueue =
+                printServer
+                    .GetPrintQueues()
+                    .FirstOrDefault(queue =>
+                        string.Equals(
+                            queue.Name,
+                            printerName,
+                            StringComparison.OrdinalIgnoreCase));
+
+            if (printQueue is null)
+            {
+                throw new InvalidOperationException(
+                    $"'{printerName}' adlı yazıcı bulunamadı.");
+            }
 
             var document = new FlowDocument
             {
@@ -293,14 +289,21 @@ namespace KaldiPOS.Services
                 FontSize = 13
             };
 
-            document.Blocks.Add(new Paragraph(new Run(ticketText))
+            document.Blocks.Add(
+                new Paragraph(new Run(ticketText))
+                {
+                    Margin = new Thickness(0),
+                    TextAlignment = TextAlignment.Left
+                });
+
+            var printDialog = new PrintDialog
             {
-                Margin = new Thickness(0),
-                TextAlignment = TextAlignment.Left
-            });
+                PrintQueue = printQueue
+            };
 
             printDialog.PrintDocument(
-                ((IDocumentPaginatorSource)document).DocumentPaginator,
+                ((IDocumentPaginatorSource)document)
+                    .DocumentPaginator,
                 "KaldiPOS Hazırlama Fişi");
         }
     }

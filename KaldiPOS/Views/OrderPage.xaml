@@ -435,7 +435,7 @@
                     <RowDefinition Height="1"/>
                     <RowDefinition Height="52"/>
                     <RowDefinition Height="38"/>
-                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="46"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
@@ -713,8 +713,19 @@
         Style="{StaticResource ActionButtonStyle}"
         Click="SendOrderButton_Click"/>
 
+                <Button Grid.Row="5"
+        Height="38"
+        Margin="0,4,0,6"
+        Content="Adisyon Yazdır"
+        Background="#211E1A"
+        BorderBrush="#D0A354"
+        Foreground="#E2B85F"
+        Style="{StaticResource ActionButtonStyle}"
+        Click="PrintReceiptButton_Click"/>
+
                 <StackPanel x:Name="RestrictedActionsPanel"
-            Grid.Row="6">
+            Grid.Row="6"
+            Margin="0,2,0,0">
 
                     <Button x:Name="TransferTableButton"
             Height="36"
