@@ -17,6 +17,7 @@ namespace KaldiPOS
 {
     public partial class MainWindow : Window
     {
+
         private readonly DispatcherTimer _clockTimer;
         private readonly DispatcherTimer _idleTimer;
         private DateTime _lastUserActivity;
@@ -136,6 +137,8 @@ namespace KaldiPOS
 
             _clockTimer.Start();
             _idleTimer.Start();
+
+
         }
 
         private void ApplyUserPermissions()
@@ -1443,7 +1446,9 @@ namespace KaldiPOS
             PreviewKeyDown -= UserActivityDetected;
             PreviewTouchDown -= UserActivityDetected;
 
+            
             base.OnClosed(e);
         }
+
     }
 }
