@@ -627,46 +627,86 @@ ORDER BY t.Id;";
     }
 
     public static void MarkOpenOrderSent(
-    string tableName)
+        string tableName)
     {
         using var connection =
             new SqliteConnection(ConnectionString);
 
         connection.Open();
 
-        using var command =
-            connection.CreateCommand();
+        using var transaction =
+            connection.BeginTransaction();
 
-        command.CommandText = @"
+        long orderId;
+
+        using (var orderCommand = connection.CreateCommand())
+        {
+            orderCommand.Transaction = transaction;
+
+            orderCommand.CommandText = @"
+SELECT o.Id
+FROM Orders o
+INNER JOIN Tables t
+    ON t.Id = o.TableId
+WHERE t.Name = $tableName
+  AND o.Status = 0
+  AND o.ClosedAt IS NULL
+ORDER BY o.Id DESC
+LIMIT 1;";
+
+            orderCommand.Parameters.AddWithValue(
+                "$tableName",
+                tableName);
+
+            object? result =
+                orderCommand.ExecuteScalar();
+
+            if (result is null)
+            {
+                throw new InvalidOperationException(
+                    "Gönderildi olarak işaretlenecek açık adisyon bulunamadı.");
+            }
+
+            orderId = Convert.ToInt64(result);
+        }
+
+        using (var itemCommand = connection.CreateCommand())
+        {
+            itemCommand.Transaction = transaction;
+
+            itemCommand.CommandText = @"
+UPDATE OrderItems
+SET SentQuantity = Quantity
+WHERE OrderId = $orderId;";
+
+            itemCommand.Parameters.AddWithValue(
+                "$orderId",
+                orderId);
+
+            itemCommand.ExecuteNonQuery();
+        }
+
+        using (var orderUpdateCommand = connection.CreateCommand())
+        {
+            orderUpdateCommand.Transaction = transaction;
+
+            orderUpdateCommand.CommandText = @"
 UPDATE Orders
 SET LastOrderAt = $lastOrderAt
-WHERE Id =
-(
-    SELECT o.Id
-    FROM Orders o
-    INNER JOIN Tables t
-        ON t.Id = o.TableId
-    WHERE t.Name = $tableName
-      AND o.Status = 0
-      AND o.ClosedAt IS NULL
-    ORDER BY o.Id DESC
-    LIMIT 1
-);";
+WHERE Id = $orderId;";
 
-        command.Parameters.AddWithValue(
-            "$lastOrderAt",
-            DateTime.Now.ToString("O"));
+            orderUpdateCommand.Parameters.AddWithValue(
+                "$lastOrderAt",
+                DateTime.Now.ToString("O"));
 
-        command.Parameters.AddWithValue(
-            "$tableName",
-            tableName);
+            orderUpdateCommand.Parameters.AddWithValue(
+                "$orderId",
+                orderId);
 
-        if (command.ExecuteNonQuery() == 0)
-        {
-            throw new InvalidOperationException(
-                "Son sipariş zamanı güncellenecek " +
-                "açık adisyon bulunamadı.");
+            orderUpdateCommand.ExecuteNonQuery();
         }
+
+        transaction.Commit();
     }
 
     public static List<SavedOrderItem> LoadOpenOrder(string tableName)
