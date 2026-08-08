@@ -1,16 +1,32 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
-  </PropertyGroup>
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UseWPF>true</UseWPF>
+
+		<ApplicationIcon>Assets\KaldiPOS.ico</ApplicationIcon>
+
+		<AssemblyName>KaldiPOS</AssemblyName>
+		<Product>KaldiPOS</Product>
+		<Title>KaldiPOS</Title>
+		<Company>ACAR BİLİŞİM</Company>
+		<Authors>ACAR BİLİŞİM</Authors>
+		<Description>Kaldi Cafe Satış ve Adisyon Yönetim Sistemi</Description>
+
+		<Version>1.0.0</Version>
+		<FileVersion>1.0.0.0</FileVersion>
+		<AssemblyVersion>1.0.0.0</AssemblyVersion>
+
+		<Copyright>© 2026 ACAR BİLİŞİM</Copyright>
+	</PropertyGroup>
 
   <ItemGroup>
     <None Remove="Assets\Images\splash-background.png" />
     <None Remove="Assets\kaldi-logo.png" />
+	<None Remove="Assets\KaldiPOS.ico" />
     <None Remove="Assets\login-background.png" />
     <None Remove="Assets\splash-background.png" />
     <None Remove="Assets\Products\*.png" />
@@ -35,6 +51,9 @@
     <Resource Include="Assets\kaldi-logo.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
+	  <Resource Include="Assets\KaldiPOS.ico">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Resource>
     <Resource Include="Assets\login-background.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>

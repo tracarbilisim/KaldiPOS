@@ -165,6 +165,41 @@ public static class LocalClientService
         response.EnsureSuccessStatusCode();
     }
 
+    public static async Task<bool> PrintPreparationTicketsAsync(
+    string tableName,
+    IEnumerable<PreparationTicketItem> items)
+    {
+        NetworkSettings settings =
+            NetworkSettingsService.Load();
+
+        string url =
+            $"http://{settings.ServerAddress}:{settings.Port}/api/print-preparation";
+
+        var request = new
+        {
+            TableName = tableName,
+            Items = items.ToList()
+        };
+
+        string json =
+            JsonSerializer.Serialize(request);
+
+        using var content = new StringContent(
+            json,
+            System.Text.Encoding.UTF8,
+            "application/json");
+
+        using HttpResponseMessage response =
+            await HttpClient.PostAsync(url, content);
+
+        response.EnsureSuccessStatusCode();
+
+        string result =
+            await response.Content.ReadAsStringAsync();
+
+        return bool.Parse(result);
+    }
+
     public static async Task MarkOpenOrderSentAsync(
         string tableName)
     {

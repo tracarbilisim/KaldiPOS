@@ -879,7 +879,9 @@ namespace KaldiPOS.Views
             BackRequested?.Invoke(this, EventArgs.Empty);
         }
 
-        private async void SendOrderButton_Click(object sender, RoutedEventArgs e)
+        private async void SendOrderButton_Click(
+            object sender,
+            RoutedEventArgs e)
         {
             if (OrderItems.Count == 0)
             {
@@ -890,22 +892,8 @@ namespace KaldiPOS.Views
                 return;
             }
 
-            int newItemCount = OrderItems.Sum(item => item.UnsentQuantity);
-
-            var preparationItems = OrderItems
-                .Where(item => item.UnsentQuantity > 0)
-                .Select(item =>
-                {
-                    ProductItem? product = _allProducts.FirstOrDefault(
-                        product => product.Id == item.ProductId);
-
-                    return new PreparationTicketItem(
-                        item.Name,
-                        product?.Category ?? string.Empty,
-                        item.UnsentQuantity,
-                        item.Note);
-                })
-                .ToList();
+            int newItemCount =
+                OrderItems.Sum(item => item.UnsentQuantity);
 
             if (newItemCount == 0)
             {
@@ -916,6 +904,24 @@ namespace KaldiPOS.Views
                 return;
             }
 
+            var preparationItems =
+                OrderItems
+                    .Where(item => item.UnsentQuantity > 0)
+                    .Select(item =>
+                    {
+                        ProductItem? product =
+                            _allProducts.FirstOrDefault(
+                                product =>
+                                    product.Id == item.ProductId);
+
+                        return new PreparationTicketItem(
+                            item.Name,
+                            product?.Category ?? string.Empty,
+                            item.UnsentQuantity,
+                            item.Note);
+                    })
+                    .ToList();
+
             NetworkSettings settings =
                 NetworkSettingsService.Load();
 
@@ -925,57 +931,76 @@ namespace KaldiPOS.Views
                     item.Name,
                     item.Quantity,
                     item.Price,
-                    item.Quantity,
+                    item.SentQuantity,
                     item.Note))
                 .ToList();
 
-            if (string.Equals(
-                    settings.Mode,
-                    "Client",
-                    StringComparison.OrdinalIgnoreCase))
+            try
             {
-                await LocalClientService.SaveOpenOrderAsync(
-                    _tableName,
-                    itemsToSave);
-            }
-            else
-            {
-                Database.SaveOpenOrder(
-                    _tableName,
-                    itemsToSave);
-            }
+                if (string.Equals(
+                        settings.Mode,
+                        "Client",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    await LocalClientService.SaveOpenOrderAsync(
+                        _tableName,
+                        itemsToSave);
 
-            bool printSucceeded =
-                PreparationTicketService.PrintPreparationTickets(
+                    bool printSucceeded =
+                        await LocalClientService.PrintPreparationTicketsAsync(
+                            _tableName,
+                            preparationItems);
+
+                    if (!printSucceeded)
+                    {
+                        KaldiMessageWindow.ShowWarning(
+                            Window.GetWindow(this),
+                            "Hazırlama Fişi",
+                            "Hazırlama fişi sunucu bilgisayarında yazdırılamadı.");
+
+                        return;
+                    }
+
+                    await LocalClientService.MarkOpenOrderSentAsync(
+                        _tableName);
+                }
+                else
+                {
+                    Database.SaveOpenOrder(
+                        _tableName,
+                        itemsToSave);
+
+                    bool printSucceeded =
+                        PreparationTicketService.PrintPreparationTickets(
+                            Window.GetWindow(this),
+                            _tableName,
+                            preparationItems);
+
+                    if (!printSucceeded)
+                        return;
+
+                    Database.MarkOpenOrderSent(
+                        _tableName);
+                }
+
+                foreach (OrderItem item in OrderItems)
+                    item.MarkAsSent();
+
+                KaldiToastWindow.ShowSuccess(
                     Window.GetWindow(this),
-                    _tableName,
-                    preparationItems);
+                    $"{newItemCount} yeni ürün başarıyla gönderildi.");
 
-            if (!printSucceeded)
-                return;
-
-            if (string.Equals(
-                    settings.Mode,
-                    "Client",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                await LocalClientService.MarkOpenOrderSentAsync(
-                    _tableName);
+                BackRequested?.Invoke(
+                    this,
+                    EventArgs.Empty);
             }
-            else
+            catch (Exception exception)
             {
-                Database.MarkOpenOrderSent(
-                    _tableName);
+                KaldiMessageWindow.ShowWarning(
+                    Window.GetWindow(this),
+                    "Sipariş Gönderilemedi",
+                    exception.Message);
             }
-
-            foreach (OrderItem item in OrderItems)
-                item.MarkAsSent();
-
-            KaldiToastWindow.ShowSuccess(
-                Window.GetWindow(this),
-                $"{newItemCount} yeni ürün başarıyla gönderildi.");
-
-            BackRequested?.Invoke(this, EventArgs.Empty);
         }
 
         private async void TransferTableButton_Click(

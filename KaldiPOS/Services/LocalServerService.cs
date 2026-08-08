@@ -179,6 +179,50 @@ public sealed class LocalServerService
 
             context.Response.StatusCode = 200;
         }
+        else if (path == "/api/print-preparation" &&
+                 context.Request.HttpMethod == "POST")
+        {
+            using var reader = new StreamReader(
+                context.Request.InputStream,
+                context.Request.ContentEncoding);
+
+            string body =
+                await reader.ReadToEndAsync();
+
+            var request =
+                JsonSerializer.Deserialize<PreparationPrintRequest>(
+                    body,
+                    new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+            if (request is null)
+            {
+                context.Response.StatusCode = 400;
+            }
+            else
+            {
+                bool printSucceeded =
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(
+                        () => PreparationTicketService.PrintPreparationTickets(
+                            System.Windows.Application.Current.MainWindow,
+                            request.TableName,
+                            request.Items));
+
+                byte[] bytes =
+                    Encoding.UTF8.GetBytes(
+                        printSucceeded.ToString());
+
+                context.Response.StatusCode = 200;
+                context.Response.ContentType =
+                    "text/plain; charset=utf-8";
+                context.Response.ContentLength64 =
+                    bytes.Length;
+
+                await context.Response.OutputStream.WriteAsync(bytes);
+            }
+        }
         else if (path == "/api/mark-order-sent" &&
                  context.Request.HttpMethod == "POST")
         {
@@ -510,6 +554,13 @@ public sealed class LocalServerService
     private sealed class DeleteOpenOrderRequest
     {
         public string TableName { get; set; } = string.Empty;
+    }
+
+    private sealed class PreparationPrintRequest
+    {
+        public string TableName { get; set; } = string.Empty;
+
+        public List<PreparationTicketItem> Items { get; set; } = new();
     }
 
     private sealed class PaymentRequest
