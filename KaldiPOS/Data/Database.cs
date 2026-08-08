@@ -1467,21 +1467,27 @@ WHERE OrderId = $orderId;";
 
         if (remainingItemCount == 0)
         {
-            using var deleteSourceOrderCommand =
+            using var closeSourceOrderCommand =
                 connection.CreateCommand();
 
-            deleteSourceOrderCommand.Transaction =
+            closeSourceOrderCommand.Transaction =
                 transaction;
 
-            deleteSourceOrderCommand.CommandText = @"
-DELETE FROM Orders
+            closeSourceOrderCommand.CommandText = @"
+UPDATE Orders
+SET Status = 2,
+    ClosedAt = $closedAt
 WHERE Id = $orderId;";
 
-            deleteSourceOrderCommand.Parameters.AddWithValue(
+            closeSourceOrderCommand.Parameters.AddWithValue(
+                "$closedAt",
+                DateTime.Now.ToString("O"));
+
+            closeSourceOrderCommand.Parameters.AddWithValue(
                 "$orderId",
                 sourceOrderId);
 
-            deleteSourceOrderCommand.ExecuteNonQuery();
+            closeSourceOrderCommand.ExecuteNonQuery();
         }
 
         using (var statusCommand = connection.CreateCommand())
@@ -1763,14 +1769,18 @@ INNER JOIN Orders o ON o.Id = op.OrderId
 INNER JOIN Tables t ON t.Id = o.TableId
 WHERE t.Name = $tableName
   AND o.Status = 0
-  AND o.ClosedAt IS NULL;";
+  AND o.ClosedAt IS NULL
+  AND COALESCE(op.Description, '') NOT LIKE '[URUN-ODEME]%';";
 
         command.Parameters.AddWithValue("$tableName", tableName);
+
         object? result = command.ExecuteScalar();
 
         return result is null || result == DBNull.Value
             ? 0
-            : Convert.ToDecimal(result, CultureInfo.InvariantCulture);
+            : Convert.ToDecimal(
+                result,
+                CultureInfo.InvariantCulture);
     }
 
     public static void AddOpenOrderPayment(
@@ -1856,7 +1866,8 @@ VALUES
 
             paymentCommand.Parameters.AddWithValue(
                 "$description",
-                description ?? string.Empty);
+                "[URUN-ODEME] " +
+                (description ?? string.Empty));
 
             paymentCommand.Parameters.AddWithValue(
                 "$createdAt",
