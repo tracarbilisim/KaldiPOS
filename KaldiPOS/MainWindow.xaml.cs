@@ -223,55 +223,41 @@ namespace KaldiPOS
                 automaticTime = new TimeOnly(23, 55);
             }
 
-            DateTime todayAutomaticTime =
-                now.Date.Add(automaticTime.ToTimeSpan());
+            DateTime businessDate =
+                Database.GetActiveBusinessDate().Date;
 
-            DateTime tomorrowAutomaticTime =
-                todayAutomaticTime.AddDays(1);
+            DateTime automaticDateTime =
+                businessDate.Add(
+                    automaticTime.ToTimeSpan());
 
             int warningMinutes = Math.Clamp(
                 settings.DayEndWarningMinutes,
                 0,
                 60);
 
-            DateTime todayWarningTime =
-                todayAutomaticTime.AddMinutes(-warningMinutes);
-
-            DateTime tomorrowWarningTime =
-                tomorrowAutomaticTime.AddMinutes(-warningMinutes);
-
-            bool warningMinuteReached =
-                IsSameMinute(now, todayWarningTime) ||
-                IsSameMinute(now, tomorrowWarningTime);
-
-            DateTime warningTargetTime =
-                IsSameMinute(now, todayWarningTime)
-                    ? todayAutomaticTime
-                    : tomorrowAutomaticTime;
-
-            DateTime warningTargetDate =
-                warningTargetTime.Date;
+            DateTime warningDateTime =
+                automaticDateTime.AddMinutes(
+                    -warningMinutes);
 
             if (settings.DayEndWarningEnabled &&
                 warningMinutes > 0 &&
-                warningMinuteReached &&
-                _lastAutomaticDayEndWarningDate != warningTargetDate)
+                now >= warningDateTime &&
+                now < automaticDateTime &&
+                _lastAutomaticDayEndWarningDate != businessDate)
             {
                 _lastAutomaticDayEndWarningDate =
-                    warningTargetDate;
+                    businessDate;
 
                 AutomaticDayEndWarningWindow.ShowCountdown(
                     this,
-                    warningTargetTime);
+                    automaticDateTime);
             }
 
-            if (!IsSameMinute(now, todayAutomaticTime))
+            if (now < automaticDateTime)
                 return;
 
-            if (_lastAutomaticDayEndDate == now.Date)
+            if (_lastAutomaticDayEndDate == businessDate)
                 return;
-
-            _lastAutomaticDayEndDate = now.Date;
 
             try
             {
@@ -294,6 +280,9 @@ namespace KaldiPOS
                     return;
                 }
 
+                _lastAutomaticDayEndDate =
+                    businessDate;
+
                 LoadTables();
 
                 DateTime newBusinessDate =
@@ -309,7 +298,6 @@ namespace KaldiPOS
                 AutomaticDayEndWarningWindow.ShowFailed(
                     this,
                     exception.Message);
-
             }
         }
 

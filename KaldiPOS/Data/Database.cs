@@ -95,6 +95,22 @@ CREATE TABLE IF NOT EXISTS OrderPayments
     FOREIGN KEY (OrderId) REFERENCES Orders(Id)
 );
 
+CREATE TABLE IF NOT EXISTS PaidOrderItems
+(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    OrderId INTEGER NOT NULL,
+    ProductId INTEGER NOT NULL,
+    ProductName TEXT NOT NULL,
+    Quantity INTEGER NOT NULL,
+    UnitPrice REAL NOT NULL,
+    Note TEXT NOT NULL DEFAULT '',
+    PaidAt TEXT NOT NULL,
+    FOREIGN KEY (OrderId) REFERENCES Orders(Id)
+);
+
+CREATE INDEX IF NOT EXISTS IX_PaidOrderItems_OrderId
+ON PaidOrderItems(OrderId);
+
 CREATE TABLE IF NOT EXISTS CancelledOrderItems
 (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1467,27 +1483,104 @@ WHERE OrderId = $orderId;";
 
         if (remainingItemCount == 0)
         {
-            using var closeSourceOrderCommand =
-                connection.CreateCommand();
+            decimal sourcePaidTotal = 0;
+            int sourcePaymentTypeCount = 0;
+            string sourcePaymentType = string.Empty;
 
-            closeSourceOrderCommand.Transaction =
-                transaction;
+            using (var paymentSummaryCommand =
+                   connection.CreateCommand())
+            {
+                paymentSummaryCommand.Transaction = transaction;
 
-            closeSourceOrderCommand.CommandText = @"
+                paymentSummaryCommand.CommandText = @"
+SELECT
+    COALESCE(SUM(Amount), 0),
+    COUNT(DISTINCT PaymentType),
+    COALESCE(MIN(PaymentType), '')
+FROM OrderPayments
+WHERE OrderId = $orderId;";
+
+                paymentSummaryCommand.Parameters.AddWithValue(
+                    "$orderId",
+                    sourceOrderId);
+
+                using var reader =
+                    paymentSummaryCommand.ExecuteReader();
+
+                reader.Read();
+
+                sourcePaidTotal = Convert.ToDecimal(
+                    reader.GetDouble(0),
+                    CultureInfo.InvariantCulture);
+
+                sourcePaymentTypeCount =
+                    reader.GetInt32(1);
+
+                sourcePaymentType =
+                    reader.GetString(2);
+            }
+
+            if (sourcePaidTotal > 0)
+            {
+                if (sourcePaymentTypeCount > 1)
+                    sourcePaymentType = "Çoklu Ödeme";
+
+                using var closePaidSourceCommand =
+                    connection.CreateCommand();
+
+                closePaidSourceCommand.Transaction =
+                    transaction;
+
+                closePaidSourceCommand.CommandText = @"
+UPDATE Orders
+SET Status = 1,
+    ClosedAt = $closedAt,
+    PaymentType = $paymentType,
+    TotalAmount = $totalAmount
+WHERE Id = $orderId;";
+
+                closePaidSourceCommand.Parameters.AddWithValue(
+                    "$closedAt",
+                    DateTime.Now.ToString("O"));
+
+                closePaidSourceCommand.Parameters.AddWithValue(
+                    "$paymentType",
+                    sourcePaymentType);
+
+                closePaidSourceCommand.Parameters.AddWithValue(
+                    "$totalAmount",
+                    sourcePaidTotal);
+
+                closePaidSourceCommand.Parameters.AddWithValue(
+                    "$orderId",
+                    sourceOrderId);
+
+                closePaidSourceCommand.ExecuteNonQuery();
+            }
+            else
+            {
+                using var closeEmptySourceCommand =
+                    connection.CreateCommand();
+
+                closeEmptySourceCommand.Transaction =
+                    transaction;
+
+                closeEmptySourceCommand.CommandText = @"
 UPDATE Orders
 SET Status = 2,
     ClosedAt = $closedAt
 WHERE Id = $orderId;";
 
-            closeSourceOrderCommand.Parameters.AddWithValue(
-                "$closedAt",
-                DateTime.Now.ToString("O"));
+                closeEmptySourceCommand.Parameters.AddWithValue(
+                    "$closedAt",
+                    DateTime.Now.ToString("O"));
 
-            closeSourceOrderCommand.Parameters.AddWithValue(
-                "$orderId",
-                sourceOrderId);
+                closeEmptySourceCommand.Parameters.AddWithValue(
+                    "$orderId",
+                    sourceOrderId);
 
-            closeSourceOrderCommand.ExecuteNonQuery();
+                closeEmptySourceCommand.ExecuteNonQuery();
+            }
         }
 
         using (var statusCommand = connection.CreateCommand())
@@ -1866,8 +1959,7 @@ VALUES
 
             paymentCommand.Parameters.AddWithValue(
                 "$description",
-                "[URUN-ODEME] " +
-                (description ?? string.Empty));
+                description ?? string.Empty);
 
             paymentCommand.Parameters.AddWithValue(
                 "$createdAt",
@@ -1998,6 +2090,62 @@ LIMIT 1;";
                     $"{selection.Name} ürününün fiyatı değişmiş. Adisyonu yenileyin.");
             }
 
+            using (var paidItemCommand = connection.CreateCommand())
+            {
+                paidItemCommand.Transaction = transaction;
+                paidItemCommand.CommandText = @"
+INSERT INTO PaidOrderItems
+(
+    OrderId,
+    ProductId,
+    ProductName,
+    Quantity,
+    UnitPrice,
+    Note,
+    PaidAt
+)
+VALUES
+(
+    $orderId,
+    $productId,
+    $productName,
+    $quantity,
+    $unitPrice,
+    $note,
+    $paidAt
+);";
+
+                paidItemCommand.Parameters.AddWithValue(
+                    "$orderId",
+                    orderId);
+
+                paidItemCommand.Parameters.AddWithValue(
+                    "$productId",
+                    selection.ProductId);
+
+                paidItemCommand.Parameters.AddWithValue(
+                    "$productName",
+                    selection.Name);
+
+                paidItemCommand.Parameters.AddWithValue(
+                    "$quantity",
+                    selection.Quantity);
+
+                paidItemCommand.Parameters.AddWithValue(
+                    "$unitPrice",
+                    selection.UnitPrice);
+
+                paidItemCommand.Parameters.AddWithValue(
+                    "$note",
+                    selection.Note ?? string.Empty);
+
+                paidItemCommand.Parameters.AddWithValue(
+                    "$paidAt",
+                    DateTime.Now.ToString("O"));
+
+                paidItemCommand.ExecuteNonQuery();
+            }
+
             if (selection.Quantity == currentQuantity)
             {
                 using var deleteCommand = connection.CreateCommand();
@@ -2057,7 +2205,8 @@ VALUES
             paymentCommand.Parameters.AddWithValue("$amount", amount);
             paymentCommand.Parameters.AddWithValue(
                 "$description",
-                description ?? string.Empty);
+                "[URUN-ODEME] " +
+                (description ?? string.Empty));
             paymentCommand.Parameters.AddWithValue(
                 "$createdAt",
                 DateTime.Now.ToString("O"));
@@ -2481,14 +2630,37 @@ LIMIT 1;";
 
         itemCommand.CommandText = @"
 SELECT
-    p.Name,
-    oi.Quantity,
-    oi.UnitPrice,
-    COALESCE(oi.Note, '')
-FROM OrderItems oi
-INNER JOIN Products p ON p.Id = oi.ProductId
-WHERE oi.OrderId = $orderId
-ORDER BY oi.Id;";
+    ProductName,
+    Quantity,
+    UnitPrice,
+    Note
+FROM
+(
+    SELECT
+        p.Name AS ProductName,
+        oi.Quantity AS Quantity,
+        oi.UnitPrice AS UnitPrice,
+        COALESCE(oi.Note, '') AS Note,
+        oi.Id AS SortId,
+        1 AS SortGroup
+    FROM OrderItems oi
+    INNER JOIN Products p
+        ON p.Id = oi.ProductId
+    WHERE oi.OrderId = $orderId
+
+    UNION ALL
+
+    SELECT
+        poi.ProductName,
+        poi.Quantity,
+        poi.UnitPrice,
+        COALESCE(poi.Note, ''),
+        poi.Id,
+        0
+    FROM PaidOrderItems poi
+    WHERE poi.OrderId = $orderId
+)
+ORDER BY SortGroup, SortId;";
 
         itemCommand.Parameters.AddWithValue(
             "$orderId",
@@ -2574,10 +2746,13 @@ ORDER BY Id;";
         public string DescriptionText =>
             string.IsNullOrWhiteSpace(Description)
                 ? "-"
-                : Description;
+                : Description.Replace(
+                    "[URUN-ODEME] ",
+                    "",
+                    StringComparison.OrdinalIgnoreCase);
     }
 
-    public sealed record OrderDetailItem(
+        public sealed record OrderDetailItem(
     string ProductName,
     int Quantity,
     decimal UnitPrice,
