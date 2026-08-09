@@ -2312,14 +2312,95 @@ WHERE Id = $orderId;";
     }
 
     public static void CloseOpenOrder(
-    string tableName,
-    string paymentType,
-    decimal totalAmount)
+        string tableName,
+        string paymentType,
+        decimal totalAmount)
     {
         using var connection = new SqliteConnection(ConnectionString);
         connection.Open();
 
         using var transaction = connection.BeginTransaction();
+
+        long orderId;
+
+        using (var findCommand = connection.CreateCommand())
+        {
+            findCommand.Transaction = transaction;
+            findCommand.CommandText = @"
+SELECT o.Id
+FROM Orders o
+INNER JOIN Tables t ON t.Id = o.TableId
+WHERE t.Name = $tableName
+  AND o.Status = 0
+  AND o.ClosedAt IS NULL
+LIMIT 1;";
+
+            findCommand.Parameters.AddWithValue("$tableName", tableName);
+
+            object? result = findCommand.ExecuteScalar();
+
+            if (result is null)
+                throw new InvalidOperationException(
+                    "Kapatılacak açık adisyon bulunamadı.");
+
+            orderId = Convert.ToInt64(result);
+        }
+
+        decimal previousPayments;
+
+        using (var paymentCommand = connection.CreateCommand())
+        {
+            paymentCommand.Transaction = transaction;
+            paymentCommand.CommandText = @"
+SELECT COALESCE(SUM(Amount), 0)
+FROM OrderPayments
+WHERE OrderId = $orderId;";
+
+            paymentCommand.Parameters.AddWithValue("$orderId", orderId);
+
+            previousPayments = Convert.ToDecimal(
+                paymentCommand.ExecuteScalar(),
+                CultureInfo.InvariantCulture);
+        }
+
+        decimal finalTotal = previousPayments;
+
+        int previousPaymentTypeCount;
+        string previousPaymentType;
+
+        using (var typeCommand = connection.CreateCommand())
+        {
+            typeCommand.Transaction = transaction;
+            typeCommand.CommandText = @"
+SELECT COUNT(DISTINCT PaymentType),
+       COALESCE(MIN(PaymentType), '')
+FROM OrderPayments
+WHERE OrderId = $orderId;";
+
+            typeCommand.Parameters.AddWithValue("$orderId", orderId);
+
+            using var reader = typeCommand.ExecuteReader();
+            reader.Read();
+
+            previousPaymentTypeCount = reader.GetInt32(0);
+            previousPaymentType = reader.GetString(1);
+        }
+
+        string finalPaymentType;
+
+        if (previousPaymentTypeCount == 0)
+        {
+            finalPaymentType = paymentType;
+        }
+        else if (previousPaymentTypeCount == 1 &&
+                 previousPaymentType == paymentType)
+        {
+            finalPaymentType = paymentType;
+        }
+        else
+        {
+            finalPaymentType = "Çoklu Ödeme";
+        }
 
         using (var orderCommand = connection.CreateCommand())
         {
@@ -2330,16 +2411,7 @@ SET ClosedAt = $closedAt,
     Status = 1,
     PaymentType = $paymentType,
     TotalAmount = $totalAmount
-WHERE Id =
-(
-    SELECT o.Id
-    FROM Orders o
-    INNER JOIN Tables t ON t.Id = o.TableId
-    WHERE t.Name = $tableName
-      AND o.Status = 0
-      AND o.ClosedAt IS NULL
-    LIMIT 1
-);";
+WHERE Id = $orderId;";
 
             orderCommand.Parameters.AddWithValue(
                 "$closedAt",
@@ -2347,21 +2419,17 @@ WHERE Id =
 
             orderCommand.Parameters.AddWithValue(
                 "$paymentType",
-                paymentType);
+                finalPaymentType);
 
             orderCommand.Parameters.AddWithValue(
                 "$totalAmount",
-                totalAmount);
+                finalTotal);
 
             orderCommand.Parameters.AddWithValue(
-                "$tableName",
-                tableName);
+                "$orderId",
+                orderId);
 
-            int affectedRows = orderCommand.ExecuteNonQuery();
-
-            if (affectedRows == 0)
-                throw new InvalidOperationException(
-                    "Kapatılacak açık adisyon bulunamadı.");
+            orderCommand.ExecuteNonQuery();
         }
 
         using (var tableCommand = connection.CreateCommand())
@@ -2905,23 +2973,78 @@ ORDER BY o.ClosedAt DESC;";
     {
         List<SalesReportItem> orders = GetClosedOrders(date);
 
-        decimal cashTotal = orders
-            .Where(order => order.PaymentType == "Nakit")
-            .Sum(order => order.TotalAmount);
+        using var connection =
+            new SqliteConnection(ConnectionString);
 
-        decimal cardTotal = orders
-            .Where(order => order.PaymentType == "Kart")
-            .Sum(order => order.TotalAmount);
+        connection.Open();
 
-        decimal mixedTotal = orders
-            .Where(order =>
-                order.PaymentType != "Nakit" &&
-                order.PaymentType != "Kart")
-            .Sum(order => order.TotalAmount);
+        using var command = connection.CreateCommand();
+
+        command.CommandText = @"
+SELECT
+    COALESCE(SUM(
+        CASE
+            WHEN op.PaymentType = 'Nakit'
+            THEN op.Amount
+            ELSE 0
+        END), 0),
+
+    COALESCE(SUM(
+        CASE
+            WHEN op.PaymentType = 'Kart'
+            THEN op.Amount
+            ELSE 0
+        END), 0),
+
+    COALESCE(SUM(
+        CASE
+            WHEN op.PaymentType <> 'Nakit'
+             AND op.PaymentType <> 'Kart'
+            THEN op.Amount
+            ELSE 0
+        END), 0)
+
+FROM OrderPayments op
+INNER JOIN Orders o
+    ON o.Id = op.OrderId
+WHERE o.Status = 1
+  AND o.ClosedAt IS NOT NULL
+  AND COALESCE(o.IsCancelled, 0) = 0
+  AND o.BusinessDate = $businessDate;";
+
+        command.Parameters.AddWithValue(
+            "$businessDate",
+            date.Date.ToString("yyyy-MM-dd"));
+
+        using var reader = command.ExecuteReader();
+
+        decimal cashTotal = 0;
+        decimal cardTotal = 0;
+        decimal mixedTotal = 0;
+
+        if (reader.Read())
+        {
+            cashTotal = Convert.ToDecimal(
+                reader.GetDouble(0),
+                CultureInfo.InvariantCulture);
+
+            cardTotal = Convert.ToDecimal(
+                reader.GetDouble(1),
+                CultureInfo.InvariantCulture);
+
+            mixedTotal = Convert.ToDecimal(
+                reader.GetDouble(2),
+                CultureInfo.InvariantCulture);
+        }
+
+        decimal totalRevenue =
+            cashTotal +
+            cardTotal +
+            mixedTotal;
 
         return new SalesReportSummary(
             orders.Count,
-            orders.Sum(order => order.TotalAmount),
+            totalRevenue,
             cashTotal,
             cardTotal,
             mixedTotal);
