@@ -1,0 +1,11 @@
+{
+  "businessName": "Kaldi Cafe",
+  "tagline": "Kahve • Kahvaltı • Lezzet",
+  "currency": "₺",
+  "showImages": true,
+  "orderingEnabled": false,
+  "allowNotes": true,
+  "orderRequiresApproval": true,
+  "phone": "",
+  "instagram": ""
+}
