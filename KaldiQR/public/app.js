@@ -7,7 +7,21 @@ function tableFromUrl(){const path=decodeURIComponent(location.pathname);const m
 function normalize(s){return(s||"").toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g,"")}
 function categoryImage(c){return sortedProducts(c).find(p=>p.imagePath)?.imagePath||"/assets/kaldi-logo.png"}
 
+function applyTheme(theme){
+  document.documentElement.dataset.theme=theme;
+  localStorage.setItem("kaldi-theme",theme);
+  el("themeButton").textContent=theme==="dark"?"☀":"◐";
+  document.querySelector('meta[name="theme-color"]').setAttribute("content",theme==="dark"?"#17110d":"#2b1a12");
+}
+function toggleTheme(){applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark")}
+function initTheme(){
+  const saved=localStorage.getItem("kaldi-theme");
+  const initial=saved||((window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light");
+  applyTheme(initial);
+}
+
 async function boot(){
+  initTheme();
   try{
     const[m,c]=await Promise.all([fetch("/data/menu.json").then(r=>r.json()),fetch("/data/config.json").then(r=>r.json())]);
     state.menu=m;state.config=c;el("tagline").textContent=c.tagline||"";
@@ -22,36 +36,36 @@ function renderCategories(){
     <button class="category-card" data-category="${c.sortOrder}" type="button">
       <img src="${categoryImage(c)}" alt="${esc(c.name)}" loading="lazy">
       <span class="category-shade"></span>
-      <strong>${esc(c.name)}</strong>
+      <span class="category-label">
+        <small>${c.products.length} ürün</small>
+        <strong>${esc(c.name)}</strong>
+      </span>
     </button>`).join("");
   document.querySelectorAll("[data-category]").forEach(b=>b.onclick=()=>openCategory(Number(b.dataset.category)));
 }
 
-function renderCategoryNav(){
-  el("categoryNav").innerHTML=sortedCategories().map(c=>`
-    <button class="category-chip ${c.sortOrder===state.activeCategory?"active":""}" data-nav-category="${c.sortOrder}" type="button">
-      <img src="${categoryImage(c)}" alt="">
-      <span>${esc(c.name)}</span>
-    </button>`).join("");
-  document.querySelectorAll("[data-nav-category]").forEach(b=>b.onclick=()=>openCategory(Number(b.dataset.navCategory),false));
-  requestAnimationFrame(()=>el("categoryNav").querySelector(".active")?.scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"}));
-}
-
-function openCategory(sortOrder,scrollTop=true){
+function openCategory(sortOrder){
   const c=sortedCategories().find(x=>x.sortOrder===sortOrder);if(!c)return;
   state.activeCategory=sortOrder;state.query="";el("searchInput").value="";
-  el("homeView").hidden=true;el("categoryView").hidden=false;el("backButton").hidden=false;el("topSpacer").hidden=true;
-  renderCategoryNav();
+  el("homeView").hidden=true;el("categoryView").hidden=false;el("backButton").hidden=false;
+  el("categoryMiniCount").textContent=`${c.products.length} ürün`;
   const image=categoryImage(c);
-  el("categoryHero").innerHTML=`<img src="${image}" alt="${esc(c.name)}"><span></span><h1>${esc(c.name)}</h1>`;
+  el("categoryHero").innerHTML=`
+    <img src="${image}" alt="${esc(c.name)}">
+    <span class="hero-shade"></span>
+    <div class="hero-copy">
+      <small>Kaldi Cafe</small>
+      <h1>${esc(c.name)}</h1>
+      <p>${c.products.length} ürün</p>
+    </div>`;
   el("categoryTitle").textContent=c.name;el("categoryCount").textContent=`${c.products.length} ürün`;
   el("productList").innerHTML=sortedProducts(c).map(productRow).join("");
   bindAddButtons(el("productList"));
-  if(scrollTop)window.scrollTo({top:0,behavior:"smooth"});
+  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function goHome(){
-  state.activeCategory=null;el("categoryView").hidden=true;el("homeView").hidden=false;el("backButton").hidden=true;el("topSpacer").hidden=false;
+  state.activeCategory=null;el("categoryView").hidden=true;el("homeView").hidden=false;el("backButton").hidden=true;
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -65,9 +79,10 @@ function productRow(p){
 
 function search(){
   state.query=el("searchInput").value;const q=normalize(state.query.trim());
-  if(!q){el("searchResults").hidden=true;document.querySelector(".section-head").parentElement.hidden=false;return}
+  const categoryBlock=document.querySelector(".category-section-home");
+  if(!q){el("searchResults").hidden=true;categoryBlock.hidden=false;return}
   const found=sortedCategories().flatMap(c=>sortedProducts(c).filter(p=>normalize(`${p.name} ${p.description||""} ${c.name}`).includes(q)));
-  el("searchResults").hidden=false;el("searchCount").textContent=`${found.length} ürün`;
+  categoryBlock.hidden=true;el("searchResults").hidden=false;el("searchCount").textContent=`${found.length} ürün`;
   el("searchProductList").innerHTML=found.length?found.map(productRow).join(""):'<div class="empty">Aramanıza uygun ürün bulunamadı.</div>';
   bindAddButtons(el("searchProductList"));
 }
@@ -81,7 +96,7 @@ function renderCart(){const rows=[...state.cart.entries()];el("cartItems").inner
 function openCart(){renderCart();el("cartSheet").hidden=false;document.body.style.overflow="hidden"}
 function closeCart(){el("cartSheet").hidden=true;document.body.style.overflow=""}
 async function submit(){if(!state.cart.size)return toast("Sepetiniz boş.");const table=tableFromUrl();if(!table)return toast("Sipariş için masa QR kodunu okutmalısınız.");const payload={table:Number(table),note:el("orderNote").value.trim(),items:[...state.cart.values()].map(x=>({externalId:x.product.externalId,quantity:x.qty,unitPrice:x.product.price}))};try{const r=await fetch("/api/orders",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.message||"Sipariş gönderilemedi");state.cart.clear();updateCart();closeCart();toast("Siparişiniz alındı.")}catch(e){toast(e.message||"Sipariş gönderilemedi.")}}
-function bind(){el("searchInput").addEventListener("input",search);el("backButton").onclick=goHome;el("cartButton").onclick=openCart;document.querySelectorAll("[data-close-cart]").forEach(b=>b.onclick=closeCart);el("submitOrder").onclick=submit}
+function bind(){el("searchInput").addEventListener("input",search);el("backButton").onclick=goHome;el("categoryBackInline").onclick=goHome;el("themeButton").onclick=toggleTheme;el("cartButton").onclick=openCart;document.querySelectorAll("[data-close-cart]").forEach(b=>b.onclick=closeCart);el("submitOrder").onclick=submit}
 function toast(t){const x=el("toast");x.textContent=t;x.hidden=false;clearTimeout(window.__toast);window.__toast=setTimeout(()=>x.hidden=true,2600)}
 function esc(s){return String(s??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]))}
 document.addEventListener("DOMContentLoaded",boot);

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#202428">
+  <meta name="theme-color" content="#2b1a12">
   <meta name="description" content="Kaldi Cafe dijital menü">
   <title>Kaldi Cafe | Menü</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,14 +14,18 @@
 <body>
   <header class="topbar">
     <div class="topbar-inner shell">
-      <button id="backButton" class="top-action back-action" type="button" aria-label="Kategorilere dön" hidden>←</button>
+      <button id="backButton" class="icon-action back-action" type="button" aria-label="Kategorilere dön" hidden>←</button>
+
       <div class="brand">
         <img class="logo" src="/assets/kaldi-logo.png" alt="Kaldi Cafe">
       </div>
-      <button id="cartButton" class="top-action cart-button" type="button" hidden>
-        Sepet <span id="cartCount">0</span>
-      </button>
-      <div id="topSpacer" class="top-spacer"></div>
+
+      <div class="header-actions">
+        <button id="themeButton" class="icon-action theme-button" type="button" aria-label="Tema değiştir">◐</button>
+        <button id="cartButton" class="cart-button" type="button" hidden>
+          Sepet <span id="cartCount">0</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -30,19 +34,22 @@
 
     <section id="homeView">
       <div class="intro">
-        <p class="eyebrow">KALDİ CAFE</p>
-        <h1>Menü</h1>
+        <span class="eyebrow">KALDİ CAFE</span>
+        <h1>Dijital Menü</h1>
         <p id="tagline" class="tagline">Kahve • Kahvaltı • Lezzet</p>
       </div>
 
       <label class="search-wrap">
         <span class="search-icon">⌕</span>
-        <input id="searchInput" type="search" placeholder="Menüde ara..." autocomplete="off">
+        <input id="searchInput" type="search" placeholder="Ne arıyorsunuz?" autocomplete="off">
       </label>
 
-      <section>
+      <section class="category-section-home">
         <div class="section-head">
-          <h2>Kategoriler</h2>
+          <div>
+            <span class="section-kicker">MENÜ</span>
+            <h2>Kategoriler</h2>
+          </div>
         </div>
         <div id="categoryGrid" class="category-grid">
           <div class="loading">Menü hazırlanıyor...</div>
@@ -51,7 +58,10 @@
 
       <section id="searchResults" hidden>
         <div class="section-head">
-          <h2>Arama Sonuçları</h2>
+          <div>
+            <span class="section-kicker">ARAMA</span>
+            <h2>Sonuçlar</h2>
+          </div>
           <span id="searchCount"></span>
         </div>
         <div id="searchProductList" class="product-list"></div>
@@ -59,12 +69,21 @@
     </section>
 
     <section id="categoryView" hidden>
-      <nav id="categoryNav" class="category-nav" aria-label="Kategoriler"></nav>
+      <div class="category-toolbar">
+        <button id="categoryBackInline" class="category-back" type="button">← Kategoriler</button>
+        <span id="categoryMiniCount" class="category-mini-count"></span>
+      </div>
+
       <div id="categoryHero" class="category-hero"></div>
+
       <div class="section-head category-product-head">
-        <h2 id="categoryTitle"></h2>
+        <div>
+          <span class="section-kicker">SEÇİLEN KATEGORİ</span>
+          <h2 id="categoryTitle"></h2>
+        </div>
         <span id="categoryCount"></span>
       </div>
+
       <div id="productList" class="product-list"></div>
     </section>
   </main>
