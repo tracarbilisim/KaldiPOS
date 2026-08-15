@@ -3,40 +3,69 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#17120d">
+  <meta name="theme-color" content="#202428">
   <meta name="description" content="Kaldi Cafe dijital menü">
   <title>Kaldi Cafe | Menü</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header class="hero">
-    <div class="hero-glow"></div>
-    <div class="hero-inner shell">
-      <img class="logo" src="/assets/kaldi-logo.png" alt="Kaldi Cafe">
-      <p class="eyebrow">KALDİ CAFE</p>
-      <h1>İyi kahve, güzel sofralar.</h1>
-      <p id="tagline" class="tagline">Kahve • Kahvaltı • Lezzet</p>
-      <div id="tableBadge" class="table-badge" hidden></div>
+  <header class="topbar">
+    <div class="topbar-inner shell">
+      <button id="backButton" class="top-action back-action" type="button" aria-label="Kategorilere dön" hidden>←</button>
+      <div class="brand">
+        <img class="logo" src="/assets/kaldi-logo.png" alt="Kaldi Cafe">
+      </div>
+      <button id="cartButton" class="top-action cart-button" type="button" hidden>
+        Sepet <span id="cartCount">0</span>
+      </button>
+      <div id="topSpacer" class="top-spacer"></div>
     </div>
   </header>
 
   <main class="shell main">
-    <section class="toolbar" aria-label="Menü araçları">
+    <div id="tableBadge" class="table-badge" hidden></div>
+
+    <section id="homeView">
+      <div class="intro">
+        <p class="eyebrow">KALDİ CAFE</p>
+        <h1>Menü</h1>
+        <p id="tagline" class="tagline">Kahve • Kahvaltı • Lezzet</p>
+      </div>
+
       <label class="search-wrap">
         <span class="search-icon">⌕</span>
         <input id="searchInput" type="search" placeholder="Menüde ara..." autocomplete="off">
       </label>
-      <button id="cartButton" class="cart-button" type="button" hidden>
-        Sepet <span id="cartCount">0</span>
-      </button>
+
+      <section>
+        <div class="section-head">
+          <h2>Kategoriler</h2>
+        </div>
+        <div id="categoryGrid" class="category-grid">
+          <div class="loading">Menü hazırlanıyor...</div>
+        </div>
+      </section>
+
+      <section id="searchResults" hidden>
+        <div class="section-head">
+          <h2>Arama Sonuçları</h2>
+          <span id="searchCount"></span>
+        </div>
+        <div id="searchProductList" class="product-list"></div>
+      </section>
     </section>
 
-    <nav id="categoryNav" class="category-nav" aria-label="Kategoriler"></nav>
-    <section id="menuRoot" class="menu-root" aria-live="polite">
-      <div class="loading">Menü hazırlanıyor...</div>
+    <section id="categoryView" hidden>
+      <nav id="categoryNav" class="category-nav" aria-label="Kategoriler"></nav>
+      <div id="categoryHero" class="category-hero"></div>
+      <div class="section-head category-product-head">
+        <h2 id="categoryTitle"></h2>
+        <span id="categoryCount"></span>
+      </div>
+      <div id="productList" class="product-list"></div>
     </section>
   </main>
 
