@@ -58,7 +58,6 @@ function openCategory(sortOrder){
       <h1>${esc(c.name)}</h1>
       <p>${c.products.length} ürün</p>
     </div>`;
-  el("categoryTitle").textContent=c.name;el("categoryCount").textContent=`${c.products.length} ürün`;
   el("productList").innerHTML=sortedProducts(c).map(productRow).join("");
   bindAddButtons(el("productList"));
   window.scrollTo({top:0,behavior:"smooth"});
