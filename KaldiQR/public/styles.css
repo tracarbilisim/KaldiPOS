@@ -6,3 +6,27 @@
 .sheet{position:fixed;inset:0;z-index:60}.sheet-backdrop{position:absolute;inset:0;border:0;background:rgba(20,12,8,.55);backdrop-filter:blur(3px)}.sheet-panel{position:absolute;left:0;right:0;bottom:0;max-height:88vh;overflow:auto;background:#fffaf3;border-radius:28px 28px 0 0;padding:10px 18px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -18px 60px rgba(0,0,0,.18)}.sheet-handle{width:44px;height:5px;border-radius:10px;background:#d4c8ba;margin:2px auto 14px}.sheet-head{display:flex;justify-content:space-between;align-items:center}.sheet-head h2{font-family:"Playfair Display",serif;margin:0;font-size:30px}.icon-button{border:1px solid var(--line);background:white;width:40px;height:40px;border-radius:14px}.cart-items{display:grid;gap:10px;margin:18px 0}.cart-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px;border:1px solid var(--line);border-radius:16px;background:#fff}.cart-row h3{font-size:13px;margin:0 0 4px}.cart-row small{color:var(--muted)}.qty{display:flex;align-items:center;gap:8px}.qty button{width:30px;height:30px;border:1px solid var(--line);background:#fffaf3;border-radius:10px}.order-note{display:grid;gap:7px;font-size:12px;font-weight:800}.order-note textarea{resize:none;border:1px solid var(--line);border-radius:14px;padding:12px;font:inherit;background:#fff}.cart-total{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);margin-top:15px;padding:16px 0}.cart-total strong{font-size:22px}.primary-button{width:100%;border:0;border-radius:16px;background:linear-gradient(135deg,#3c2416,#1e130d);color:#fff;padding:16px;font:800 14px Manrope;box-shadow:var(--shadow)}.approval-note{text-align:center;color:var(--muted);font-size:11px}.toast{position:fixed;z-index:90;left:50%;bottom:22px;transform:translateX(-50%);background:#24170f;color:#fff;padding:12px 16px;border-radius:14px;box-shadow:var(--shadow);font-size:13px;max-width:calc(100% - 30px)}.footer{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding:20px 0 28px;color:var(--muted);font-size:12px}.footer span{font-weight:800;color:#4c3526}
 @media(min-width:720px){.hero{padding:34px 0 54px}.product-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.product-name{font-size:16px}.product-desc{font-size:12.5px}.product-content{padding:16px}.sheet-panel{left:auto;width:440px;top:0;border-radius:28px 0 0 28px;max-height:none;padding-top:24px}.sheet-handle{display:none}}
 @media(min-width:1020px){.product-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+/* QR Menü - Sunum İyileştirmeleri */
+@media(max-width:719px){
+  .shell{width:min(100% - 20px,1120px)}
+  .hero{padding:20px 0 32px;border-radius:0 0 28px 28px}
+  .logo{width:150px;height:92px;margin-left:-4px}
+  .hero h1{font-size:36px;max-width:360px}
+  .tagline{font-size:13px}
+
+  .main{padding-top:14px}
+  .toolbar{padding:8px 0}
+  .category-nav{padding:4px 0 14px}
+  .category-chip{padding:9px 13px}
+
+  .category-section{margin:10px 0 30px}
+  .category-title h2{font-size:25px}
+
+  .product-grid{gap:10px}
+  .product-card{border-radius:17px}
+  .product-image-wrap{aspect-ratio:1.25/1}
+  .product-content{padding:11px}
+  .product-name{font-size:13px}
+  .product-desc{-webkit-line-clamp:2}
+  .price{font-size:14px}
+}
